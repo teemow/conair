@@ -32,6 +32,7 @@ pacstrap -i -c -d /var/lib/conair/images/base base
 
 ## Commands
 
+```
 conair init    # Setup a bridge for the containers and add some iptables forwarding
 conair destroy # Remove bridge, iptables and unit file
 conair images  # List all available conair images
@@ -46,6 +47,7 @@ conair rm      # Remove a container
 conair rmi     # Remove an image
 conair help    # Show a list of commands or help for one command
 conair version # Print the version and exit
+```
 
 ## Why?
 
