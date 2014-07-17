@@ -39,7 +39,7 @@ func runRun(args []string) (exit int) {
 		return 1
 	}
 
-	c := nspawn.Init(container)
+	c := nspawn.Init(container, fmt.Sprintf("%s/%s", getContainerPath(), container))
 
 	if err := c.Enable(); err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't enable container.", err)

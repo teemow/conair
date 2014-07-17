@@ -30,11 +30,20 @@ btrfs subvolume create /var/lib/conair/images/base
 pacstrap -i -c -d /var/lib/conair/images/base base
 ```
 
+## Build an image
+
+Write a normal Dockerfile. Only FROM, RUN and ADD are supported.
+
+```
+conair build my-new-image
+```
+
 ## Commands
 
 ```
 conair init    # Setup a bridge for the containers and add some iptables forwarding
 conair destroy # Remove bridge, iptables and unit file
+conair images  # List all available conair images
 conair images  # List all available conair images
 conair run     # Run a container
 conair ps      # List all conair containers

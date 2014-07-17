@@ -24,7 +24,7 @@ func runRm(args []string) (exit int) {
 	container := args[0]
 	containerPath := fmt.Sprintf("container/%s", container)
 
-	c := nspawn.Init(container)
+	c := nspawn.Init(container, fmt.Sprintf("%s/%s", getContainerPath(), container))
 	if err := c.Stop(); err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't stop container.", err)
 	}

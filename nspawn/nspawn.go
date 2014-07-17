@@ -22,6 +22,18 @@ Type=notify
 [Install]
 WantedBy=multi-user.target
 `
+const buildstepTemplate string = `#!/bin/sh
+mkdir -p /run/systemd/resolve
+echo 'nameserver 8.8.8.8' > /run/systemd/resolve/resolv.conf
+
+{{.Payload}}
+
+rc=$?
+
+rm -f /run/systemd/resolve/resolv.conf
+
+exit $rc
+`
 
 type unit struct {
 	Bridge    string
@@ -60,35 +72,39 @@ func RemoveUnit() error {
 	return os.Remove(fmt.Sprintf("%s/conair@.service", systemdPath))
 }
 
-func Init(name string) container {
-	return container{
+func Init(name, path string) Container {
+	return Container{
 		name,
 		fmt.Sprintf("conair@%s.service", name),
+		path,
+		".conairbuildstep",
 	}
 }
 
-type container struct {
-	Name string
-	Unit string
+type Container struct {
+	Name      string
+	Unit      string
+	Path      string
+	Buildstep string
 }
 
-func (c *container) Enable() error {
+func (c *Container) Enable() error {
 	return exec.Command("systemctl", "enable", c.Unit).Run()
 }
 
-func (c *container) Start() error {
+func (c *Container) Start() error {
 	return exec.Command("systemctl", "start", c.Unit).Run()
 }
 
-func (c *container) Disable() error {
+func (c *Container) Disable() error {
 	return exec.Command("systemctl", "disable", c.Unit).Run()
 }
 
-func (c *container) Stop() error {
+func (c *Container) Stop() error {
 	return exec.Command("systemctl", "stop", c.Unit).Run()
 }
 
-func (c *container) Status() (string, error) {
+func (c *Container) Status() (string, error) {
 	o, err := exec.Command("systemctl", "status", c.Unit).Output()
 
 	if err != nil {
@@ -98,7 +114,7 @@ func (c *container) Status() (string, error) {
 	return bytes.NewBuffer(o).String(), nil
 }
 
-func (c *container) Attach() error {
+func (c *Container) Attach() error {
 	o, _ := exec.Command("machinectl", "-p", "Leader", "show", c.Name).Output()
 
 	leader := strings.TrimSpace(strings.Split(bytes.NewBuffer(o).String(), "=")[1])
@@ -106,7 +122,15 @@ func (c *container) Attach() error {
 	// prepare the shell
 	cmd := exec.Command("/usr/bin/nsenter", "-m", "-u", "-i", "-n", "-p", "-t", leader, "/bin/bash")
 
-	cmd.Env = []string{"TERM=vt102", "SHELL=/bin/bash", "USER=root", "LANG=C", "HOME=/root", "PWD=/root", "PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/core_perl"}
+	cmd.Env = []string{
+		"TERM=vt102",
+		"SHELL=/bin/bash",
+		"USER=root",
+		"LANG=C",
+		"HOME=/root",
+		"PWD=/root",
+		"PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/core_perl",
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -114,4 +138,81 @@ func (c *container) Attach() error {
 	cmd.Run()
 
 	return nil
+}
+
+func (c *Container) Build(verb, payload string) error {
+	var cmd *exec.Cmd
+
+	switch verb {
+	case "RUN":
+		if err := createBuildstep(fmt.Sprintf("%s/%s", c.Path, c.Buildstep), payload); err != nil {
+			return err
+		}
+
+		cmd = exec.Command(
+			"/usr/bin/systemd-nspawn",
+			"--quiet",
+			fmt.Sprintf("--directory=%s", c.Path),
+			fmt.Sprintf("/%s", c.Buildstep),
+		)
+	case "ADD":
+		paths := strings.Split(payload, " ")
+		if len(paths) < 2 {
+			return fmt.Errorf("Failed to add: %s", payload)
+		}
+		cmd = exec.Command("cp", paths[0], fmt.Sprintf("%s%s", c.Path, paths[1]))
+	}
+
+	cmd.Env = []string{
+		"TERM=vt102",
+		"SHELL=/bin/bash",
+		"USER=root",
+		"LANG=C",
+		"HOME=/root",
+		"PWD=/root",
+		"PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/core_perl",
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	if verb == "RUN" {
+		if err := os.Remove(fmt.Sprintf("%s/%s", c.Path, c.Buildstep)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type buildstep struct {
+	Payload string
+}
+
+func createBuildstep(file, payload string) error {
+	f, err := os.Create(file)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	if err := f.Chmod(0755); err != nil {
+		return err
+	}
+
+	var tmpl *template.Template
+	tmpl, err = template.New("conair-buildstep").Parse(buildstepTemplate)
+	if err != nil {
+		return err
+	}
+	return tmpl.Execute(f, buildstep{
+		payload,
+	})
 }

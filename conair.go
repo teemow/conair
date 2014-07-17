@@ -61,6 +61,7 @@ func init() {
 		cmdRmi,
 		cmdCommit,
 		cmdStatus,
+		cmdBuild,
 		cmdHelp,
 		cmdVersion,
 	}
