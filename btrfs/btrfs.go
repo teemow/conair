@@ -51,10 +51,6 @@ type Driver struct {
 	home string
 }
 
-func (d *Driver) Create() {
-	fmt.Println("create")
-}
-
 func (d *Driver) Snapshot(from, to string) error {
 	fromPath := fmt.Sprintf("%s/%s", d.home, from)
 	toPath := fmt.Sprintf("%s/%s", d.home, to)
@@ -67,6 +63,15 @@ func (d *Driver) Snapshot(from, to string) error {
 	}
 
 	return exec.Command("btrfs", "subvolume", "snapshot", fromPath, toPath).Run()
+}
+
+func (d *Driver) Subvolume(folder string) error {
+	folderPath := fmt.Sprintf("%s/%s", d.home, folder)
+	if _, err := os.Stat(folderPath); err == nil {
+		return fmt.Errorf("Subvolume already exists: %s", folderPath)
+	}
+
+	return exec.Command("btrfs", "subvolume", "create", folderPath).Run()
 }
 
 func (d *Driver) Remove(vol string) error {

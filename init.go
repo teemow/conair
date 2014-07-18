@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/giantswarm/conair/btrfs"
 	"github.com/giantswarm/conair/iptables"
 	"github.com/giantswarm/conair/networkd"
 	"github.com/giantswarm/conair/nspawn"
@@ -17,6 +18,7 @@ var cmdInit = &Command{
 }
 
 func runInit(args []string) (exit int) {
+	fmt.Printf("Create bridge: %s\n", bridge)
 	err := networkd.CreateBridge(bridge, destination)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't create bridge.", err)
@@ -29,29 +31,18 @@ func runInit(args []string) (exit int) {
 		return 1
 	}
 
+	fmt.Println("Create systemd unit for conair containers.")
 	err = nspawn.CreateUnit(bridge, getContainerPath())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't create unit file to start containers.", err)
 		return 1
 	}
 
-	// create arch base with pacstrap
-	// install packages inside containers
-	// no ssh
+	_, err = btrfs.Init(home)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Couldn't populate filesystem structure for conair.", err)
+		return 1
+	}
+
 	return 0
-}
-
-func remove(bridge, destination string) {
-	err := iptables.DeleteBridgeForwarding(bridge, destination)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	err = networkd.DeleteBridge(bridge)
-	if err != nil {
-		fmt.Println(err)
-	}
-}
-
-func create(bridge, destination string) {
 }

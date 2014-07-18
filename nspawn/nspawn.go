@@ -3,6 +3,8 @@ package nspawn
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -242,4 +244,86 @@ func createBuildstep(file, payload string) error {
 	return tmpl.Execute(f, buildstep{
 		payload,
 	})
+}
+
+func FetchImage(image, newImage, url, path string) error {
+	tarFile := fmt.Sprintf("%s/%s.tar.bz2", path, image)
+	out, err := os.Create(tarFile)
+	defer out.Close()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Fetching %s image.\n", image)
+	var resp *http.Response
+	resp, err = http.Get(fmt.Sprintf("%s/%s.tar.bz2", url, image))
+	defer resp.Body.Close()
+	if err != nil {
+		return err
+	}
+
+	var n int64
+	n, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Fetched %s image. Downloaded %d bytes.\n", image, n)
+
+	fmt.Printf("Extracting %s...\n", tarFile)
+	cmd := exec.Command("tar", "xjf", tarFile)
+	cmd.Dir = fmt.Sprintf("%s/%s", path, newImage)
+	cmd.Env = []string{
+		"TERM=vt102",
+		"SHELL=/bin/bash",
+		"USER=root",
+		"LANG=C",
+		"HOME=/root",
+		"PWD=/root",
+		"PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/core_perl",
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	if err := os.Remove(tarFile); err != nil {
+		return err
+	}
+	return nil
+}
+
+func CreateImage(name, path string) error {
+	cmd := exec.Command("pacstrap", "-c", "-d", fmt.Sprintf("%s/%s", path, name),
+		"bash", "bzip2", "coreutils", "diffutils", "file", "filesystem", "findutils",
+		"gawk", "gcc-libs", "gettext", "glibc", "grep", "gzip", "iproute2", "iputils",
+		"less", "libutil-linux", "licenses", "logrotate", "nano", "pacman", "procps-ng",
+		"psmisc", "sed", "shadow", "sysfsutils", "tar", "texinfo", "util-linux", "vi", "which")
+
+	cmd.Env = []string{
+		"TERM=vt102",
+		"SHELL=/bin/bash",
+		"USER=root",
+		"LANG=C",
+		"HOME=/root",
+		"PWD=/root",
+		"PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/core_perl",
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	c := Init(name, fmt.Sprintf("%s/%s", path, name))
+
+	c.Build("ENABLE", "systemd-networkd systemd-resolved")
+	c.Build("RUN", "rm -f /etc/resolv.conf")
+	c.Build("RUN", "ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf")
+
+	return nil
 }

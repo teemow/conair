@@ -14,6 +14,7 @@ const (
 	bridge      = "nspawn0"
 	destination = "192.168.13.0/24"
 	home        = "/var/lib/conair"
+	hub         = "http://conair.teemow.com/images"
 )
 
 var (
@@ -62,6 +63,8 @@ func init() {
 		cmdCommit,
 		cmdStatus,
 		cmdBuild,
+		cmdPull,
+		cmdBootstrap,
 		cmdHelp,
 		cmdVersion,
 	}
