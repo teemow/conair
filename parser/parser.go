@@ -11,7 +11,7 @@ type command struct {
 	Payload string
 }
 
-type dockerfile struct {
+type Conairfile struct {
 	From     string
 	Commands []command
 }
@@ -31,13 +31,13 @@ func readFile(path string) ([]string, error) {
 	return lines, scanner.Err()
 }
 
-func Dockerfile(path string) (*dockerfile, error) {
+func Parse(path string) (*Conairfile, error) {
 	lines, err := readFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	d := &dockerfile{}
+	d := &Conairfile{}
 	for _, line := range lines {
 		if !strings.HasPrefix(line, "#") {
 			l := strings.SplitN(line, " ", 2)
@@ -50,7 +50,13 @@ func Dockerfile(path string) (*dockerfile, error) {
 				switch cmd.Verb {
 				case "FROM":
 					d.From = cmd.Payload
-				default:
+				case "ADD":
+					d.Commands = append(d.Commands, cmd)
+				case "RUN":
+					d.Commands = append(d.Commands, cmd)
+				case "PKG":
+					d.Commands = append(d.Commands, cmd)
+				case "ENABLE":
 					d.Commands = append(d.Commands, cmd)
 				}
 			}

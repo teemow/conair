@@ -140,27 +140,54 @@ func (c *Container) Attach() error {
 	return nil
 }
 
+func (c *Container) run(payload string) (*exec.Cmd, error) {
+	if err := createBuildstep(fmt.Sprintf("%s/%s", c.Path, c.Buildstep), payload); err != nil {
+		return nil, err
+	}
+
+	return exec.Command(
+		"/usr/bin/systemd-nspawn",
+		"--quiet",
+		fmt.Sprintf("--directory=%s", c.Path),
+		fmt.Sprintf("/%s", c.Buildstep),
+	), nil
+}
+
+func (c *Container) add(payload string) (*exec.Cmd, error) {
+	paths := strings.Split(payload, " ")
+	if len(paths) < 2 {
+		return nil, fmt.Errorf("Failed to add: %s", payload)
+	}
+	return exec.Command("cp", paths[0], fmt.Sprintf("%s%s", c.Path, paths[1])), nil
+}
+
+func (c *Container) enable(payload string) (*exec.Cmd, error) {
+	return c.run(fmt.Sprintf("systemctl enable %s", payload))
+}
+
+func (c *Container) pkg(payload string) (*exec.Cmd, error) {
+	return c.run(fmt.Sprintf("pacman -S --noconfirm %s", payload))
+}
+
 func (c *Container) Build(verb, payload string) error {
-	var cmd *exec.Cmd
+	var (
+		cmd *exec.Cmd
+		err error
+	)
 
 	switch verb {
 	case "RUN":
-		if err := createBuildstep(fmt.Sprintf("%s/%s", c.Path, c.Buildstep), payload); err != nil {
-			return err
-		}
-
-		cmd = exec.Command(
-			"/usr/bin/systemd-nspawn",
-			"--quiet",
-			fmt.Sprintf("--directory=%s", c.Path),
-			fmt.Sprintf("/%s", c.Buildstep),
-		)
+		cmd, err = c.run(payload)
 	case "ADD":
-		paths := strings.Split(payload, " ")
-		if len(paths) < 2 {
-			return fmt.Errorf("Failed to add: %s", payload)
-		}
-		cmd = exec.Command("cp", paths[0], fmt.Sprintf("%s%s", c.Path, paths[1]))
+		cmd, err = c.add(payload)
+	case "PKG":
+		cmd, err = c.pkg(payload)
+	case "ENABLE":
+		cmd, err = c.enable(payload)
+	}
+
+	if err != nil {
+		return err
 	}
 
 	cmd.Env = []string{
