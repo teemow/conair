@@ -142,6 +142,41 @@ func (c *Container) Attach() error {
 	return nil
 }
 
+func (c *Container) Execute(payload string) (string, error) {
+	o, _ := exec.Command("machinectl", "-p", "Leader", "show", c.Name).Output()
+
+	leader := strings.TrimSpace(strings.Split(bytes.NewBuffer(o).String(), "=")[1])
+
+	// prepare the shell
+	cmd := exec.Command("/usr/bin/nsenter", "-m", "-u", "-i", "-n", "-p", "-t", leader, "/bin/bash")
+
+	cmd.Env = []string{
+		"TERM=vt102",
+		"SHELL=/bin/bash",
+		"USER=root",
+		"LANG=C",
+		"HOME=/root",
+		"PWD=/root",
+		"PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/core_perl",
+	}
+	cmd.Stdin = strings.NewReader(payload)
+
+	bs, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	return string(bs), nil
+}
+
+func (c *Container) Inspect() (string, error) {
+	return c.Execute("ip a show dev host0")
+}
+
+func (c *Container) Ip() (string, error) {
+	return c.Execute("ip route get 128.193.4.20 | awk '{print $7}'")
+}
+
 func (c *Container) run(payload string) (*exec.Cmd, error) {
 	if err := createBuildstep(fmt.Sprintf("%s/%s", c.Path, c.Buildstep), payload); err != nil {
 		return nil, err

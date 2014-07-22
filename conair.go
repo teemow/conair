@@ -65,6 +65,8 @@ func init() {
 		cmdBuild,
 		cmdPull,
 		cmdBootstrap,
+		cmdInspect,
+		cmdIp,
 		cmdHelp,
 		cmdVersion,
 	}
