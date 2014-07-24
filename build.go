@@ -55,15 +55,17 @@ func runBuild(args []string) (exit int) {
 
 	c := nspawn.Init(container, fmt.Sprintf("%s/%s", getContainerPath(), container))
 
-	if err := c.Build("RUN", "pacman -Sy --noconfirm"); err != nil {
-		fmt.Fprintln(os.Stderr, "Pacman update failed.", err)
-
-		if err = fs.Remove(containerPath); err != nil {
-			fmt.Fprintln(os.Stderr, "Couldn't remove temporary build container.", err)
-		}
-		return 1
-	}
 	for _, cmd := range f.Commands {
+		if cmd.Verb == "PKG" {
+			if err := c.Build("RUN", "pacman -Sy --noconfirm"); err != nil {
+				fmt.Fprintln(os.Stderr, "Pacman update failed.", err)
+
+				if err = fs.Remove(containerPath); err != nil {
+					fmt.Fprintln(os.Stderr, "Couldn't remove temporary build container.", err)
+				}
+				return 1
+			}
+		}
 		if err := c.Build(cmd.Verb, cmd.Payload); err != nil {
 			fmt.Fprintln(os.Stderr, fmt.Sprintf("Buildstep failed: %s %s.", cmd.Verb, cmd.Payload))
 			if err = fs.Remove(containerPath); err != nil {
