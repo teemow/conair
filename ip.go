@@ -24,7 +24,7 @@ func runIp(args []string) (exit int) {
 	c := nspawn.Init(container, fmt.Sprintf("%s/%s", getContainerPath(), container))
 	data, err := c.Ip()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, fmt.Sprintf("Couldn't the ip of container %s.", container), err)
+		fmt.Fprintln(os.Stderr, fmt.Sprintf("Couldn't get the ip of container %s.", container), err)
 		return 1
 	}
 	fmt.Println(data)

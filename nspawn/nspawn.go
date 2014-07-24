@@ -117,9 +117,10 @@ func (c *Container) Status() (string, error) {
 }
 
 func (c *Container) Attach() error {
-	o, _ := exec.Command("machinectl", "-p", "Leader", "show", c.Name).Output()
-
-	leader := strings.TrimSpace(strings.Split(bytes.NewBuffer(o).String(), "=")[1])
+	leader, err := c.getLeader()
+	if err != nil {
+		return err
+	}
 
 	// prepare the shell
 	cmd := exec.Command("/usr/bin/nsenter", "-m", "-u", "-i", "-n", "-p", "-t", leader, "/bin/bash")
@@ -142,10 +143,20 @@ func (c *Container) Attach() error {
 	return nil
 }
 
-func (c *Container) Execute(payload string) (string, error) {
-	o, _ := exec.Command("machinectl", "-p", "Leader", "show", c.Name).Output()
+func (c *Container) getLeader() (string, error) {
+	o, err := exec.Command("machinectl", "-p", "Leader", "show", c.Name).Output()
+	if err != nil {
+		return "", err
+	}
 
-	leader := strings.TrimSpace(strings.Split(bytes.NewBuffer(o).String(), "=")[1])
+	return strings.TrimSpace(strings.Split(bytes.NewBuffer(o).String(), "=")[1]), nil
+}
+
+func (c *Container) Execute(payload string) (string, error) {
+	leader, err := c.getLeader()
+	if err != nil {
+		return "", err
+	}
 
 	// prepare the shell
 	cmd := exec.Command("/usr/bin/nsenter", "-m", "-u", "-i", "-n", "-p", "-t", leader, "/bin/bash")

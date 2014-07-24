@@ -22,6 +22,10 @@ func runAttach(args []string) (exit int) {
 
 	container := args[0]
 	c := nspawn.Init(container, fmt.Sprintf("%s/%s", getContainerPath(), container))
-	c.Attach()
+	err := c.Attach()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, fmt.Sprintf("Couldn't attach to container %s.", container), err)
+		return 1
+	}
 	return 0
 }
