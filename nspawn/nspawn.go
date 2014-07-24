@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"strings"
 	"text/template"
+
+	"code.google.com/p/go-uuid/uuid"
 )
 
 const systemdPath string = "/etc/systemd/system"
@@ -17,12 +19,19 @@ Description=Container %i
 Documentation=man:systemd-nspawn(1)
 
 [Service]
-ExecStart=/usr/bin/systemd-nspawn --machine %i --quiet --private-network --network-veth --network-bridge={{.Bridge}} --keep-unit --boot --link-journal=guest --directory={{.Directory}}/%i
+ExecStartPre=/usr/bin/sed -i "s/REPLACE_ME/${MACHINE_ID}/" {{.Directory}}/%i/etc/machine-id
+ExecStartPre=/usr/bin/chmod -w {{.Directory}}/%i/etc/machine-id
+ExecStart=/usr/bin/systemd-nspawn --machine %i --uuid=${MACHINE_ID} --quiet --private-network --network-veth --network-bridge={{.Bridge}} --keep-unit --boot --link-journal=guest --directory={{.Directory}}/%i
 KillMode=mixed
 Type=notify
 
 [Install]
 WantedBy=multi-user.target
+`
+const nspawnConfigTemplate string = `[Service]
+Environment="MACHINE_ID={{.MachineId}}"
+`
+const nspawnMachineIdTemplate string = `REPLACE_ME
 `
 const buildstepTemplate string = `#!/bin/sh
 mkdir -p /run/systemd/resolve
@@ -40,6 +49,10 @@ exit $rc
 type unit struct {
 	Bridge    string
 	Directory string
+}
+
+type config struct {
+	MachineId string
 }
 
 func CreateUnit(bridge, containerPath string) error {
@@ -75,22 +88,71 @@ func RemoveUnit() error {
 }
 
 func Init(name, path string) Container {
-	return Container{
-		name,
-		fmt.Sprintf("conair@%s.service", name),
-		path,
-		".conairbuildstep",
+	c := Container{
+		Name:      name,
+		Unit:      fmt.Sprintf("conair@%s.service", name),
+		Path:      path,
+		Buildstep: ".conairbuildstep",
 	}
+	c.ConfigPath = fmt.Sprintf("%s/%s.d", systemdPath, c.Unit)
+
+	return c
 }
 
 type Container struct {
-	Name      string
-	Unit      string
-	Path      string
-	Buildstep string
+	Name       string
+	Unit       string
+	Path       string
+	Buildstep  string
+	ConfigPath string
+}
+
+func (c *Container) createConfig() error {
+	conf := config{
+		MachineId: strings.Replace(uuid.New(), "-", "", -1),
+	}
+
+	if err := os.Mkdir(c.ConfigPath, 0755); err != nil {
+		return err
+	}
+
+	f, err := os.Create(fmt.Sprintf("%s/10-container.conf", c.ConfigPath))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	var tmpl *template.Template
+	tmpl, err = template.New("container-config").Parse(nspawnConfigTemplate)
+	if err != nil {
+		return err
+	}
+	err = tmpl.Execute(f, conf)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Container) removeConfig() error {
+	if err := os.Remove(fmt.Sprintf("%s/10-container.conf", c.ConfigPath)); err != nil {
+		return err
+	}
+	if err := os.Remove(c.ConfigPath); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *Container) Enable() error {
+	if err := c.createConfig(); err != nil {
+		return err
+	}
+
 	return exec.Command("systemctl", "enable", c.Unit).Run()
 }
 
@@ -99,6 +161,10 @@ func (c *Container) Start() error {
 }
 
 func (c *Container) Disable() error {
+	if err := c.removeConfig(); err != nil {
+		return err
+	}
+
 	return exec.Command("systemctl", "disable", c.Unit).Run()
 }
 
@@ -215,6 +281,33 @@ func (c *Container) enable(payload string) (*exec.Cmd, error) {
 
 func (c *Container) pkg(payload string) (*exec.Cmd, error) {
 	return c.run(fmt.Sprintf("pacman -S --noconfirm %s", payload))
+}
+
+func (c *Container) ReplaceMachineId() error {
+	conf := config{
+		MachineId: strings.Replace(uuid.New(), "-", "", -1),
+	}
+
+	f, err := os.Create(fmt.Sprintf("%s/etc/machine-id", c.Path))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			panic(err)
+		}
+	}()
+
+	var tmpl *template.Template
+	tmpl, err = template.New("container-machine-id").Parse(nspawnMachineIdTemplate)
+	if err != nil {
+		return err
+	}
+	err = tmpl.Execute(f, conf)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *Container) Build(verb, payload string) error {

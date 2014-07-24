@@ -72,6 +72,11 @@ func runBuild(args []string) (exit int) {
 			return 1
 		}
 	}
+	// remove machine id at the end
+	if err := c.ReplaceMachineId(); err != nil {
+		fmt.Fprintln(os.Stderr, "Couldn't remove machine-id for new image.", err)
+		return 1
+	}
 
 	if err = fs.Snapshot(containerPath, newImagePath); err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't create filesystem for new image.", err)
