@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
+	"code.google.com/p/go-uuid/uuid"
 	"github.com/giantswarm/conair/btrfs"
 	"github.com/giantswarm/conair/nspawn"
 	"github.com/giantswarm/conair/parser"
@@ -55,6 +57,11 @@ func runBuild(args []string) (exit int) {
 
 	c := nspawn.Init(container, fmt.Sprintf("%s/%s", getContainerPath(), container))
 
+	if err := c.ReplaceMachineId(strings.Replace(uuid.New(), "-", "", -1)); err != nil {
+		fmt.Fprintln(os.Stderr, "Couldn't set machine-id for temporary build container.", err)
+		return 1
+	}
+
 	for _, cmd := range f.Commands {
 		if cmd.Verb == "PKG" {
 			if err := c.Build("RUN", "pacman -Sy --noconfirm"); err != nil {
@@ -75,8 +82,8 @@ func runBuild(args []string) (exit int) {
 		}
 	}
 	// remove machine id at the end
-	if err := c.ReplaceMachineId(); err != nil {
-		fmt.Fprintln(os.Stderr, "Couldn't remove machine-id for new image.", err)
+	if err := c.ReplaceMachineId("REPLACE_ME"); err != nil {
+		fmt.Fprintln(os.Stderr, "Couldn't set machine-id placeholder for image.", err)
 		return 1
 	}
 

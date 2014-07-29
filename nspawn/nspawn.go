@@ -31,7 +31,7 @@ WantedBy=multi-user.target
 const nspawnConfigTemplate string = `[Service]
 Environment="MACHINE_ID={{.MachineId}}"
 `
-const nspawnMachineIdTemplate string = `REPLACE_ME
+const nspawnMachineIdTemplate string = `{{.MachineId}}
 `
 const buildstepTemplate string = `#!/bin/sh
 mkdir -p /run/systemd/resolve
@@ -283,9 +283,9 @@ func (c *Container) pkg(payload string) (*exec.Cmd, error) {
 	return c.run(fmt.Sprintf("pacman -S --noconfirm %s", payload))
 }
 
-func (c *Container) ReplaceMachineId() error {
+func (c *Container) ReplaceMachineId(machineId string) error {
 	conf := config{
-		MachineId: strings.Replace(uuid.New(), "-", "", -1),
+		MachineId: machineId,
 	}
 
 	f, err := os.Create(fmt.Sprintf("%s/etc/machine-id", c.Path))
