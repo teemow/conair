@@ -1,12 +1,14 @@
 package btrfs
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"syscall"
 )
 
@@ -79,6 +81,36 @@ func (d *Driver) Remove(vol string) error {
 
 	if _, err := os.Stat(volPath); os.IsNotExist(err) {
 		return fmt.Errorf("Volume does not exist: %s", volPath)
+	}
+
+	// find sub-subvolumes
+	cmd := exec.Command("btrfs", "subvolume", "list", "-o", volPath)
+
+	output, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("Can't access subvolume list of %s: %v", volPath, err)
+	}
+	defer output.Close()
+	err = cmd.Start()
+	if err != nil {
+		return err
+	}
+
+	scanner := bufio.NewScanner(output)
+	for scanner.Scan() {
+		line := strings.Split(scanner.Text(), " ")
+		if len(line) > 8 {
+			subvol := strings.Join(line[8:], " ")
+			// remove beginning of volume path - relative to conair home
+			subvol = strings.Replace(subvol, fmt.Sprintf("__active%s", d.home), "", 1)
+			if err := d.Remove(subvol); err != nil {
+				return err
+			}
+		}
+	}
+	err = scanner.Err()
+	if err != nil {
+		return fmt.Errorf("Can't read subvolume list of %s: %v", volPath, err)
 	}
 
 	return exec.Command("btrfs", "subvolume", "delete", volPath).Run()
