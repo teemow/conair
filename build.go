@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strings"
+
+	"crypto/sha1"
 
 	"code.google.com/p/go-uuid/uuid"
 	"github.com/giantswarm/conair/btrfs"
@@ -44,61 +48,93 @@ func runBuild(args []string) (exit int) {
 	newImagePath := fmt.Sprintf("images/%s", newImage)
 
 	image := f.From
-	imagePath := fmt.Sprintf("images/%s", image)
-
-	container := fmt.Sprintf("tmp-%s", newImage)
-	containerPath := fmt.Sprintf("container/%s", container)
+	fromPath := fmt.Sprintf("images/%s", image)
 
 	fs, _ := btrfs.Init(home)
-	if err = fs.Snapshot(imagePath, containerPath); err != nil {
-		fmt.Fprintln(os.Stderr, "Couldn't create filesystem for build container.", err)
-		return 1
-	}
-
-	c := nspawn.Init(container, fmt.Sprintf("%s/%s", getContainerPath(), container))
-
-	if err := c.ReplaceMachineId(strings.Replace(uuid.New(), "-", "", -1)); err != nil {
-		fmt.Fprintln(os.Stderr, "Couldn't set machine-id for temporary build container.", err)
-		return 1
-	}
 
 	for _, cmd := range f.Commands {
-		if cmd.Verb == "PKG" {
-			if err := c.Build("RUN", "pacman -Sy --noconfirm"); err != nil {
-				fmt.Fprintln(os.Stderr, "Pacman update failed.", err)
-
-				if err = fs.Remove(containerPath); err != nil {
+		var err error
+		fromPath, err = createContainer(fs, cmd, fromPath)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, fmt.Sprintf("Buildstep failed: %s %s.", cmd.Verb, cmd.Payload), err)
+			if fromPath != "" {
+				if err = fs.Remove(fromPath); err != nil {
 					fmt.Fprintln(os.Stderr, "Couldn't remove temporary build container.", err)
 				}
-				return 1
-			}
-		}
-		if err := c.Build(cmd.Verb, cmd.Payload); err != nil {
-			fmt.Fprintln(os.Stderr, fmt.Sprintf("Buildstep failed: %s %s.", cmd.Verb, cmd.Payload))
-			if err = fs.Remove(containerPath); err != nil {
-				fmt.Fprintln(os.Stderr, "Couldn't remove temporary build container.", err)
 			}
 			return 1
 		}
 	}
-	// remove machine id at the end
-	if err := c.ReplaceMachineId("REPLACE_ME"); err != nil {
-		fmt.Fprintln(os.Stderr, "Couldn't set machine-id placeholder for image.", err)
-		return 1
-	}
-
-	if err = fs.Snapshot(containerPath, newImagePath); err != nil {
+	if err = fs.Snapshot(fromPath, newImagePath); err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't create filesystem for new image.", err)
-		if err = fs.Remove(containerPath); err != nil {
+		if err = fs.Remove(fromPath); err != nil {
 			fmt.Fprintln(os.Stderr, "Couldn't remove temporary build container.", err)
 		}
 		return 1
 	}
 
-	if err = fs.Remove(containerPath); err != nil {
+	if err = fs.Remove(fromPath); err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't remove temporary build container.", err)
 		return 1
 	}
 
 	return 0
+}
+
+func createContainer(fs *btrfs.Driver, cmd parser.Command, fromPath string) (string, error) {
+	h := sha1.New()
+	io.WriteString(h, fromPath)
+	io.WriteString(h, cmd.Verb)
+	io.WriteString(h, cmd.Payload)
+
+	if cmd.Verb == "ADD" {
+		p := strings.Split(cmd.Payload, " ")
+		sourceFile := p[0]
+
+		f, err := os.Open(sourceFile)
+		if err != nil {
+			return "", err
+		}
+		defer f.Close()
+		reader := bufio.NewReader(f)
+
+		_, err = io.Copy(h, reader)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	container := fmt.Sprintf("%x", h.Sum(nil))
+	containerPath := fmt.Sprintf("layers/%s", container)
+
+	if _, err := os.Stat(fmt.Sprintf("%s/%s", home, containerPath)); err == nil {
+		// all fine - layer already exists
+		return containerPath, nil
+	}
+
+	if err := fs.Snapshot(fromPath, containerPath); err != nil {
+		return containerPath, fmt.Errorf("Couldn't create filesystem for build container. %v", err)
+	}
+
+	c := nspawn.Init(container, fmt.Sprintf("%s/%s", home, containerPath))
+
+	if err := c.ReplaceMachineId(strings.Replace(uuid.New(), "-", "", -1)); err != nil {
+		return containerPath, fmt.Errorf("Couldn't set machine-id for temporary build container. %v", err)
+	}
+
+	if cmd.Verb == "PKG" {
+		if err := c.Build("RUN", "pacman -Sy --noconfirm"); err != nil {
+			return containerPath, fmt.Errorf("Pacman update failed. %v", err)
+		}
+	}
+	if err := c.Build(cmd.Verb, cmd.Payload); err != nil {
+		return containerPath, fmt.Errorf("Buildstep failed: %s %s. %v", cmd.Verb, cmd.Payload, err)
+	}
+
+	// remove machine id at the end
+	if err := c.ReplaceMachineId("REPLACE_ME"); err != nil {
+		return containerPath, fmt.Errorf("Couldn't set machine-id placeholder for image. %v", err)
+	}
+
+	return containerPath, nil
 }

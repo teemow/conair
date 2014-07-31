@@ -6,14 +6,14 @@ import (
 	"strings"
 )
 
-type command struct {
+type Command struct {
 	Verb    string
 	Payload string
 }
 
 type Conairfile struct {
 	From     string
-	Commands []command
+	Commands []Command
 }
 
 func readFile(path string) ([]string, error) {
@@ -42,7 +42,7 @@ func Parse(path string) (*Conairfile, error) {
 		if !strings.HasPrefix(line, "#") {
 			l := strings.SplitN(line, " ", 2)
 			if len(l) > 1 {
-				cmd := command{
+				cmd := Command{
 					Verb:    l[0],
 					Payload: l[1],
 				}

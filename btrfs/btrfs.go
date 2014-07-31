@@ -43,6 +43,9 @@ func Init(home string) (*Driver, error) {
 	if err := os.MkdirAll(fmt.Sprintf("%s/%s", home, "/container"), 0700); err != nil {
 		return nil, err
 	}
+	if err := os.MkdirAll(fmt.Sprintf("%s/%s", home, "/layers"), 0700); err != nil {
+		return nil, err
+	}
 
 	return &Driver{
 		home: home,
