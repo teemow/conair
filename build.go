@@ -67,23 +67,16 @@ func runBuild(args []string) (exit int) {
 	}
 	if err = fs.Snapshot(fromPath, newImagePath); err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't create filesystem for new image.", err)
-		if err = fs.Remove(fromPath); err != nil {
-			fmt.Fprintln(os.Stderr, "Couldn't remove temporary build container.", err)
-		}
-		return 1
-	}
-
-	if err = fs.Remove(fromPath); err != nil {
-		fmt.Fprintln(os.Stderr, "Couldn't remove temporary build container.", err)
 		return 1
 	}
 
 	return 0
 }
 
-func createContainer(fs *btrfs.Driver, cmd parser.Command, fromPath string) (string, error) {
+func createHash(id string, cmd parser.Command) (string, error) {
 	h := sha1.New()
-	io.WriteString(h, fromPath)
+
+	io.WriteString(h, id)
 	io.WriteString(h, cmd.Verb)
 	io.WriteString(h, cmd.Payload)
 
@@ -103,8 +96,19 @@ func createContainer(fs *btrfs.Driver, cmd parser.Command, fromPath string) (str
 			return "", err
 		}
 	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
 
-	container := fmt.Sprintf("%x", h.Sum(nil))
+func createContainer(fs *btrfs.Driver, cmd parser.Command, fromPath string) (string, error) {
+	id, err := fs.GetSubvolumeId(fromPath)
+	if err != nil {
+		return "", err
+	}
+
+	container, err := createHash(id, cmd)
+	if err != nil {
+		return "", err
+	}
 	containerPath := fmt.Sprintf("layers/%s", container)
 
 	if _, err := os.Stat(fmt.Sprintf("%s/%s", home, containerPath)); err == nil {

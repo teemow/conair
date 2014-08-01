@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path"
@@ -77,6 +78,45 @@ func (d *Driver) Subvolume(folder string) error {
 	}
 
 	return exec.Command("btrfs", "subvolume", "create", folderPath).Run()
+}
+
+func (d *Driver) GetSubvolumeId(folder string) (string, error) {
+	folderPath := fmt.Sprintf("%s/%s", d.home, folder)
+
+	cmd := exec.Command("btrfs", "subvolume", "list", "-o", d.home)
+	stdout, _ := cmd.StdoutPipe()
+	reader := bufio.NewReader(stdout)
+	if err := cmd.Start(); err != nil {
+		return "", err
+	}
+
+	var id string
+
+	for {
+		l, isPrefix, err := reader.ReadLine()
+		if isPrefix {
+			return "", fmt.Errorf("Couldn't get subvolume id: %s", folder)
+		}
+		if err != nil {
+			if err != io.EOF {
+				return "", err
+			}
+			break
+		}
+
+		line := string(l)
+		if strings.Contains(line, folderPath) {
+			id = strings.Fields(line)[1]
+			break
+		}
+
+	}
+	if err := cmd.Wait(); err != nil {
+		return "", err
+	}
+
+	return id, nil
+
 }
 
 func (d *Driver) Remove(vol string) error {
