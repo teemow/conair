@@ -34,7 +34,7 @@ func runRun(args []string) (exit int) {
 	containerPath := fmt.Sprintf("container/%s", container)
 
 	fs, _ := btrfs.Init(home)
-	if err := fs.Snapshot(imagePath, containerPath); err != nil {
+	if err := fs.Snapshot(imagePath, containerPath, false); err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't create filesystem for container.", err)
 		return 1
 	}

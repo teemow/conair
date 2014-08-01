@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path"
@@ -57,7 +56,7 @@ type Driver struct {
 	home string
 }
 
-func (d *Driver) Snapshot(from, to string) error {
+func (d *Driver) Snapshot(from, to string, readonly bool) error {
 	fromPath := fmt.Sprintf("%s/%s", d.home, from)
 	toPath := fmt.Sprintf("%s/%s", d.home, to)
 
@@ -68,7 +67,14 @@ func (d *Driver) Snapshot(from, to string) error {
 		return fmt.Errorf("Snapshot already exists: %s", toPath)
 	}
 
-	return exec.Command("btrfs", "subvolume", "snapshot", fromPath, toPath).Run()
+	var cmd *exec.Cmd
+
+	if readonly {
+		cmd = raw("subvolume", "snapshot", "-r", fromPath, toPath)
+	} else {
+		cmd = raw("subvolume", "snapshot", fromPath, toPath)
+	}
+	return cmd.Run()
 }
 
 func (d *Driver) Subvolume(folder string) error {
@@ -77,46 +83,36 @@ func (d *Driver) Subvolume(folder string) error {
 		return fmt.Errorf("Subvolume already exists: %s", folderPath)
 	}
 
-	return exec.Command("btrfs", "subvolume", "create", folderPath).Run()
+	return raw("subvolume", "create", folderPath).Run()
 }
 
-func (d *Driver) GetSubvolumeId(folder string) (string, error) {
-	folderPath := fmt.Sprintf("%s/%s", d.home, folder)
+func (d *Driver) GetSubvolumeDetail(subvol, detail string) (string, error) {
+	subvolPath := fmt.Sprintf("%s/%s", d.home, subvol)
 
-	cmd := exec.Command("btrfs", "subvolume", "list", "-o", d.home)
-	stdout, _ := cmd.StdoutPipe()
-	reader := bufio.NewReader(stdout)
-	if err := cmd.Start(); err != nil {
-		return "", err
-	}
+	o, _ := raw("subvolume", "show", subvolPath).Output()
 
-	var id string
+	output := string(o)
+	lines := strings.Split(output, "\n")
 
-	for {
-		l, isPrefix, err := reader.ReadLine()
-		if isPrefix {
-			return "", fmt.Errorf("Couldn't get subvolume id: %s", folder)
-		}
-		if err != nil {
-			if err != io.EOF {
-				return "", err
+	for _, line := range lines {
+		fields := strings.Split(line, ":")
+		if len(fields) > 1 {
+			key, val := strings.Trim(fields[0], " \t"), strings.Trim(fields[1], " \t")
+			if key == detail {
+				return val, nil
 			}
-			break
 		}
-
-		line := string(l)
-		if strings.Contains(line, folderPath) {
-			id = strings.Fields(line)[1]
-			break
-		}
-
 	}
-	if err := cmd.Wait(); err != nil {
-		return "", err
-	}
+	return "", fmt.Errorf("Subvolume detail %s not found", detail)
+}
 
-	return id, nil
+func (d *Driver) GetSubvolumeParentUuid(folder string) (string, error) {
+	return d.GetSubvolumeDetail(folder, "Parent uuid")
 
+}
+
+func (d *Driver) GetSubvolumeUuid(folder string) (string, error) {
+	return d.GetSubvolumeDetail(folder, "uuid")
 }
 
 func (d *Driver) Remove(vol string) error {
@@ -127,7 +123,7 @@ func (d *Driver) Remove(vol string) error {
 	}
 
 	// find sub-subvolumes
-	cmd := exec.Command("btrfs", "subvolume", "list", "-o", volPath)
+	cmd := raw("subvolume", "list", "-o", volPath)
 
 	output, err := cmd.StdoutPipe()
 	if err != nil {
@@ -156,12 +152,18 @@ func (d *Driver) Remove(vol string) error {
 		return fmt.Errorf("Can't read subvolume list of %s: %v", volPath, err)
 	}
 
-	return exec.Command("btrfs", "subvolume", "delete", volPath).Run()
+	return raw("subvolume", "delete", volPath).Run()
 }
 
 func (d *Driver) Show() string {
-	details, _ := exec.Command("btrfs", "subvolume", "show", d.home).Output()
+	details, _ := raw("subvolume", "show", d.home).Output()
 	fmt.Printf("%s", details)
 
 	return bytes.NewBuffer(details).String()
+}
+
+func raw(args ...string) *exec.Cmd {
+	cmd := exec.Command("btrfs")
+	cmd.Args = args
+	return cmd
 }

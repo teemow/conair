@@ -65,7 +65,7 @@ func runBuild(args []string) (exit int) {
 			return 1
 		}
 	}
-	if err = fs.Snapshot(fromPath, newImagePath); err != nil {
+	if err = fs.Snapshot(fromPath, newImagePath, true); err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't create filesystem for new image.", err)
 		return 1
 	}
@@ -100,7 +100,7 @@ func createHash(id string, cmd parser.Command) (string, error) {
 }
 
 func createContainer(fs *btrfs.Driver, cmd parser.Command, fromPath string) (string, error) {
-	id, err := fs.GetSubvolumeId(fromPath)
+	id, err := fs.GetSubvolumeUuid(fromPath)
 	if err != nil {
 		return "", err
 	}
@@ -116,7 +116,7 @@ func createContainer(fs *btrfs.Driver, cmd parser.Command, fromPath string) (str
 		return containerPath, nil
 	}
 
-	if err := fs.Snapshot(fromPath, containerPath); err != nil {
+	if err := fs.Snapshot(fromPath, containerPath, false); err != nil {
 		return containerPath, fmt.Errorf("Couldn't create filesystem for build container. %v", err)
 	}
 

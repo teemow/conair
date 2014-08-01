@@ -32,7 +32,7 @@ func runCommit(args []string) (exit int) {
 	imagePath := fmt.Sprintf("images/%s", image)
 
 	fs, _ := btrfs.Init(home)
-	if err := fs.Snapshot(containerPath, imagePath); err != nil {
+	if err := fs.Snapshot(containerPath, imagePath, true); err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't create snapshot of container.", err)
 		return 1
 	}
