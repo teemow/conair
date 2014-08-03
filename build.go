@@ -35,6 +35,19 @@ func runBuild(args []string) (exit int) {
 		return 1
 	}
 
+	newImage := args[0]
+	newImagePath := fmt.Sprintf("images/%s", newImage)
+
+	fs, _ := btrfs.Init(home)
+
+	if fs.Exists(newImagePath) {
+		if err := fs.Remove(newImagePath); err != nil {
+			fmt.Printf("%v", err)
+			fmt.Fprintln(os.Stderr, fmt.Sprintf("Couldn't remove existing image. %v", err))
+			return 1
+		}
+	}
+
 	f, err := readFile("./Conairfile")
 	if err != nil {
 		f, err = readFile("./Dockerfile")
@@ -44,13 +57,8 @@ func runBuild(args []string) (exit int) {
 		}
 	}
 
-	newImage := args[0]
-	newImagePath := fmt.Sprintf("images/%s", newImage)
-
 	image := f.From
 	fromPath := fmt.Sprintf("images/%s", image)
-
-	fs, _ := btrfs.Init(home)
 
 	for _, cmd := range f.Commands {
 		var err error
@@ -100,7 +108,15 @@ func createHash(id string, cmd parser.Command) (string, error) {
 }
 
 func createContainer(fs *btrfs.Driver, cmd parser.Command, fromPath string) (string, error) {
-	id, err := fs.GetSubvolumeUuid(fromPath)
+	var (
+		id  string
+		err error
+	)
+	if strings.Index(fromPath, "images/") == 0 {
+		id, err = fs.GetSubvolumeParentUuid(fromPath)
+	} else {
+		id, err = fs.GetSubvolumeUuid(fromPath)
+	}
 	if err != nil {
 		return "", err
 	}

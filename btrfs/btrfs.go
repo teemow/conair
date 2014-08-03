@@ -2,7 +2,6 @@ package btrfs
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -60,10 +59,10 @@ func (d *Driver) Snapshot(from, to string, readonly bool) error {
 	fromPath := fmt.Sprintf("%s/%s", d.home, from)
 	toPath := fmt.Sprintf("%s/%s", d.home, to)
 
-	if _, err := os.Stat(fromPath); os.IsNotExist(err) {
+	if !d.Exists(from) {
 		return fmt.Errorf("Volume does not exist: %s", fromPath)
 	}
-	if _, err := os.Stat(toPath); err == nil {
+	if d.Exists(to) {
 		return fmt.Errorf("Snapshot already exists: %s", toPath)
 	}
 
@@ -77,19 +76,30 @@ func (d *Driver) Snapshot(from, to string, readonly bool) error {
 	return cmd.Run()
 }
 
-func (d *Driver) Subvolume(folder string) error {
-	folderPath := fmt.Sprintf("%s/%s", d.home, folder)
-	if _, err := os.Stat(folderPath); err == nil {
-		return fmt.Errorf("Subvolume already exists: %s", folderPath)
+func (d *Driver) Subvolume(vol string) error {
+	volPath := fmt.Sprintf("%s/%s", d.home, vol)
+	if _, err := os.Stat(volPath); err == nil {
+		return fmt.Errorf("Subvolume already exists: %s", volPath)
 	}
 
-	return raw("subvolume", "create", folderPath).Run()
+	return raw("subvolume", "create", volPath).Run()
 }
 
-func (d *Driver) GetSubvolumeDetail(subvol, detail string) (string, error) {
-	subvolPath := fmt.Sprintf("%s/%s", d.home, subvol)
+func (d *Driver) Exists(vol string) bool {
+	volPath := fmt.Sprintf("%s/%s", d.home, vol)
+	_, err := os.Stat(volPath)
+	if err == nil {
+		return true
+	} else {
+		// check os.IsNotExist(err) ?
+		return false
+	}
+}
 
-	o, _ := raw("subvolume", "show", subvolPath).Output()
+func (d *Driver) GetSubvolumeDetail(vol, detail string) (string, error) {
+	volPath := fmt.Sprintf("%s/%s", d.home, vol)
+
+	o, _ := raw("subvolume", "show", volPath).Output()
 
 	output := string(o)
 	lines := strings.Split(output, "\n")
@@ -106,19 +116,19 @@ func (d *Driver) GetSubvolumeDetail(subvol, detail string) (string, error) {
 	return "", fmt.Errorf("Subvolume detail %s not found", detail)
 }
 
-func (d *Driver) GetSubvolumeParentUuid(folder string) (string, error) {
-	return d.GetSubvolumeDetail(folder, "Parent uuid")
+func (d *Driver) GetSubvolumeParentUuid(vol string) (string, error) {
+	return d.GetSubvolumeDetail(vol, "Parent uuid")
 
 }
 
-func (d *Driver) GetSubvolumeUuid(folder string) (string, error) {
-	return d.GetSubvolumeDetail(folder, "uuid")
+func (d *Driver) GetSubvolumeUuid(vol string) (string, error) {
+	return d.GetSubvolumeDetail(vol, "uuid")
 }
 
 func (d *Driver) Remove(vol string) error {
 	volPath := fmt.Sprintf("%s/%s", d.home, vol)
 
-	if _, err := os.Stat(volPath); os.IsNotExist(err) {
+	if !d.Exists(vol) {
 		return fmt.Errorf("Volume does not exist: %s", volPath)
 	}
 
@@ -155,15 +165,6 @@ func (d *Driver) Remove(vol string) error {
 	return raw("subvolume", "delete", volPath).Run()
 }
 
-func (d *Driver) Show() string {
-	details, _ := raw("subvolume", "show", d.home).Output()
-	fmt.Printf("%s", details)
-
-	return bytes.NewBuffer(details).String()
-}
-
 func raw(args ...string) *exec.Cmd {
-	cmd := exec.Command("btrfs")
-	cmd.Args = args
-	return cmd
+	return exec.Command("btrfs", args...)
 }
