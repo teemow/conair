@@ -125,6 +125,49 @@ func (d *Driver) GetSubvolumeUuid(vol string) (string, error) {
 	return d.GetSubvolumeDetail(vol, "uuid")
 }
 
+func (d *Driver) ListSnapshots() ([]string, error) {
+	var lines []string
+
+	// find sub-subvolumes
+	cmd := raw("subvolume", "list", "-o", d.home, "-u")
+
+	output, err := cmd.StdoutPipe()
+	if err != nil {
+		return lines, fmt.Errorf("Can't access subvolume list of %s: %v", d.home, err)
+	}
+	defer output.Close()
+	err = cmd.Start()
+	if err != nil {
+		return lines, err
+	}
+
+	scanner := bufio.NewScanner(output)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, fmt.Sprintf("__active%s", d.home)) {
+			lines = append(lines, line)
+		}
+	}
+	return lines, nil
+}
+
+func (d *Driver) GetLayerByUuid(uuid string) (string, error) {
+	layers, err := d.ListSnapshots()
+	if err != nil {
+		return "", err
+	}
+
+	for _, layer := range layers {
+		if strings.Contains(layer, fmt.Sprintf(" uuid %s ", uuid)) {
+			layerDetails := strings.Split(layer, " ")
+			if len(layerDetails) > 10 {
+				return strings.Replace(layerDetails[10], fmt.Sprintf("__active%s/", d.home), "", 1), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("No layer found")
+}
+
 func (d *Driver) Remove(vol string) error {
 	volPath := fmt.Sprintf("%s/%s", d.home, vol)
 
