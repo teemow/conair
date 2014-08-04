@@ -319,6 +319,8 @@ func (c *Container) Build(verb, payload string) error {
 	switch verb {
 	case "RUN":
 		cmd, err = c.run(payload)
+	case "RUN_NOCACHE":
+		cmd, err = c.run(payload)
 	case "ADD":
 		cmd, err = c.add(payload)
 	case "PKG":

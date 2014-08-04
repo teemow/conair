@@ -54,6 +54,8 @@ func Parse(path string) (*Conairfile, error) {
 					d.Commands = append(d.Commands, cmd)
 				case "RUN":
 					d.Commands = append(d.Commands, cmd)
+				case "RUN_NOCACHE":
+					d.Commands = append(d.Commands, cmd)
 				case "PKG":
 					d.Commands = append(d.Commands, cmd)
 				case "ENABLE":

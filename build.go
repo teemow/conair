@@ -104,6 +104,9 @@ func createHash(id string, cmd parser.Command) (string, error) {
 			return "", err
 		}
 	}
+	if cmd.Verb == "RUN_NOCACHE" {
+		io.WriteString(h, uuid.New())
+	}
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
@@ -125,6 +128,7 @@ func createContainer(fs *btrfs.Driver, cmd parser.Command, fromPath string) (str
 	if err != nil {
 		return "", err
 	}
+	fmt.Println(container, cmd.Verb, cmd.Payload)
 	containerPath := fmt.Sprintf("layers/%s", container)
 
 	if _, err := os.Stat(fmt.Sprintf("%s/%s", home, containerPath)); err == nil {
