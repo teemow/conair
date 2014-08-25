@@ -1,16 +1,13 @@
 package nspawn
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
+
 	"os"
 	"os/exec"
-	"strings"
 	"text/template"
-
-	"code.google.com/p/go-uuid/uuid"
 )
 
 const systemdPath string = "/etc/systemd/system"
@@ -51,10 +48,6 @@ type unit struct {
 	Directory string
 }
 
-type config struct {
-	MachineId string
-}
-
 func CreateUnit(bridge, containerPath string) error {
 	u := unit{
 		bridge,
@@ -87,251 +80,12 @@ func RemoveUnit() error {
 	return os.Remove(fmt.Sprintf("%s/conair@.service", systemdPath))
 }
 
-func Init(name, path string) Container {
-	c := Container{
-		Name:      name,
-		Unit:      fmt.Sprintf("conair@%s.service", name),
-		Path:      path,
-		Buildstep: ".conairbuildstep",
-	}
-	c.ConfigPath = fmt.Sprintf("%s/%s.d", systemdPath, c.Unit)
-
-	return c
-}
-
-type Container struct {
-	Name       string
-	Unit       string
-	Path       string
-	Buildstep  string
-	ConfigPath string
-}
-
-func (c *Container) createConfig() error {
-	conf := config{
-		MachineId: strings.Replace(uuid.New(), "-", "", -1),
-	}
-
-	if err := os.Mkdir(c.ConfigPath, 0755); err != nil {
-		return err
-	}
-
-	f, err := os.Create(fmt.Sprintf("%s/10-container.conf", c.ConfigPath))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			panic(err)
-		}
-	}()
-
-	var tmpl *template.Template
-	tmpl, err = template.New("container-config").Parse(nspawnConfigTemplate)
-	if err != nil {
-		return err
-	}
-	err = tmpl.Execute(f, conf)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *Container) removeConfig() error {
-	if err := os.Remove(fmt.Sprintf("%s/10-container.conf", c.ConfigPath)); err != nil {
-		return err
-	}
-	if err := os.Remove(c.ConfigPath); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *Container) Enable() error {
-	if err := c.createConfig(); err != nil {
-		return err
-	}
-
-	return exec.Command("systemctl", "enable", c.Unit).Run()
-}
-
-func (c *Container) Start() error {
-	return exec.Command("systemctl", "start", c.Unit).Run()
-}
-
-func (c *Container) Disable() error {
-	if err := c.removeConfig(); err != nil {
-		return err
-	}
-
-	return exec.Command("systemctl", "disable", c.Unit).Run()
-}
-
-func (c *Container) Stop() error {
-	return exec.Command("systemctl", "stop", c.Unit).Run()
-}
-
-func (c *Container) Status() (string, error) {
-	o, err := exec.Command("systemctl", "status", c.Unit).Output()
-
-	if err != nil {
-		return "", err
-	}
-
-	return bytes.NewBuffer(o).String(), nil
-}
-
-func (c *Container) Attach() error {
-	leader, err := c.getLeader()
-	if err != nil {
-		return err
-	}
-
-	// prepare the shell
-	cmd := exec.Command("/usr/bin/nsenter", "-m", "-u", "-i", "-n", "-p", "-t", leader, "/bin/bash")
-
-	cmd.Env = []string{
-		"TERM=vt102",
-		"SHELL=/bin/bash",
-		"USER=root",
-		"LANG=C",
-		"HOME=/root",
-		"PWD=/root",
-		"PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/core_perl",
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
-	cmd.Run()
-
-	return nil
-}
-
-func (c *Container) getLeader() (string, error) {
-	o, err := exec.Command("machinectl", "-p", "Leader", "show", c.Name).Output()
-	if err != nil {
-		return "", err
-	}
-
-	return strings.TrimSpace(strings.Split(bytes.NewBuffer(o).String(), "=")[1]), nil
-}
-
-func (c *Container) Execute(payload string) (string, error) {
-	leader, err := c.getLeader()
-	if err != nil {
-		return "", err
-	}
-
-	// prepare the shell
-	cmd := exec.Command("/usr/bin/nsenter", "-m", "-u", "-i", "-n", "-p", "-t", leader, "/bin/bash")
-
-	cmd.Env = []string{
-		"TERM=vt102",
-		"SHELL=/bin/bash",
-		"USER=root",
-		"LANG=C",
-		"HOME=/root",
-		"PWD=/root",
-		"PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/core_perl",
-	}
-	cmd.Stdin = strings.NewReader(payload)
-
-	bs, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-
-	return string(bs), nil
-}
-
-func (c *Container) Inspect() (string, error) {
-	return c.Execute("ip a show dev host0")
-}
-
-func (c *Container) Ip() (string, error) {
-	return c.Execute("ip route get 128.193.4.20 | awk '{print $7}'")
-}
-
-func (c *Container) run(payload string) (*exec.Cmd, error) {
-	if err := createBuildstep(fmt.Sprintf("%s/%s", c.Path, c.Buildstep), payload); err != nil {
-		return nil, err
-	}
-
-	return exec.Command(
-		"/usr/bin/systemd-nspawn",
-		"--quiet",
-		fmt.Sprintf("--directory=%s", c.Path),
-		fmt.Sprintf("/%s", c.Buildstep),
-	), nil
-}
-
-func (c *Container) add(payload string) (*exec.Cmd, error) {
-	paths := strings.Split(payload, " ")
-	if len(paths) < 2 {
-		return nil, fmt.Errorf("Failed to add: %s", payload)
-	}
-	return exec.Command("cp", paths[0], fmt.Sprintf("%s%s", c.Path, paths[1])), nil
-}
-
-func (c *Container) enable(payload string) (*exec.Cmd, error) {
-	return c.run(fmt.Sprintf("systemctl enable %s", payload))
-}
-
-func (c *Container) pkg(payload string) (*exec.Cmd, error) {
-	return c.run(fmt.Sprintf("pacman -S --noconfirm %s", payload))
-}
-
-func (c *Container) ReplaceMachineId(machineId string) error {
-	conf := config{
-		MachineId: machineId,
-	}
-
-	f, err := os.Create(fmt.Sprintf("%s/etc/machine-id", c.Path))
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			panic(err)
-		}
-	}()
-
-	var tmpl *template.Template
-	tmpl, err = template.New("container-machine-id").Parse(nspawnMachineIdTemplate)
-	if err != nil {
-		return err
-	}
-	err = tmpl.Execute(f, conf)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *Container) Build(verb, payload string) error {
-	var (
-		cmd *exec.Cmd
-		err error
-	)
-
-	switch verb {
-	case "RUN":
-		cmd, err = c.run(payload)
-	case "RUN_NOCACHE":
-		cmd, err = c.run(payload)
-	case "ADD":
-		cmd, err = c.add(payload)
-	case "PKG":
-		cmd, err = c.pkg(payload)
-	case "ENABLE":
-		cmd, err = c.enable(payload)
-	}
-
-	if err != nil {
-		return err
-	}
+func CreateImage(name, path string) error {
+	cmd := exec.Command("pacstrap", "-c", "-d", fmt.Sprintf("%s/%s", path, name),
+		"bash", "bzip2", "coreutils", "diffutils", "file", "filesystem", "findutils",
+		"gawk", "gcc-libs", "gettext", "glibc", "grep", "gzip", "iproute2", "iputils",
+		"less", "libutil-linux", "licenses", "logrotate", "nano", "pacman", "procps-ng",
+		"psmisc", "sed", "shadow", "sysfsutils", "tar", "texinfo", "util-linux", "vi", "which")
 
 	cmd.Env = []string{
 		"TERM=vt102",
@@ -350,41 +104,13 @@ func (c *Container) Build(verb, payload string) error {
 		return err
 	}
 
-	if verb == "RUN" {
-		if err := os.Remove(fmt.Sprintf("%s/%s", c.Path, c.Buildstep)); err != nil {
-			return err
-		}
-	}
+	c := Init(name, fmt.Sprintf("%s/%s", path, name))
+
+	c.Build("ENABLE", "systemd-networkd systemd-resolved")
+	c.Build("RUN", "rm -f /etc/resolv.conf")
+	c.Build("RUN", "ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf")
+
 	return nil
-}
-
-type buildstep struct {
-	Payload string
-}
-
-func createBuildstep(file, payload string) error {
-	f, err := os.Create(file)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := f.Close(); err != nil {
-			panic(err)
-		}
-	}()
-
-	if err := f.Chmod(0755); err != nil {
-		return err
-	}
-
-	var tmpl *template.Template
-	tmpl, err = template.New("conair-buildstep").Parse(buildstepTemplate)
-	if err != nil {
-		return err
-	}
-	return tmpl.Execute(f, buildstep{
-		payload,
-	})
 }
 
 func FetchImage(image, newImage, url, path string) error {
@@ -433,38 +159,5 @@ func FetchImage(image, newImage, url, path string) error {
 	if err := os.Remove(tarFile); err != nil {
 		return err
 	}
-	return nil
-}
-
-func CreateImage(name, path string) error {
-	cmd := exec.Command("pacstrap", "-c", "-d", fmt.Sprintf("%s/%s", path, name),
-		"bash", "bzip2", "coreutils", "diffutils", "file", "filesystem", "findutils",
-		"gawk", "gcc-libs", "gettext", "glibc", "grep", "gzip", "iproute2", "iputils",
-		"less", "libutil-linux", "licenses", "logrotate", "nano", "pacman", "procps-ng",
-		"psmisc", "sed", "shadow", "sysfsutils", "tar", "texinfo", "util-linux", "vi", "which")
-
-	cmd.Env = []string{
-		"TERM=vt102",
-		"SHELL=/bin/bash",
-		"USER=root",
-		"LANG=C",
-		"HOME=/root",
-		"PWD=/root",
-		"PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/core_perl",
-	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-
-	if err := cmd.Run(); err != nil {
-		return err
-	}
-
-	c := Init(name, fmt.Sprintf("%s/%s", path, name))
-
-	c.Build("ENABLE", "systemd-networkd systemd-resolved")
-	c.Build("RUN", "rm -f /etc/resolv.conf")
-	c.Build("RUN", "ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf")
-
 	return nil
 }
