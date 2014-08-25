@@ -12,33 +12,36 @@ import (
 )
 
 type layer struct {
-	hash       string
-	verb       string
-	payload    string
-	parentId   string
-	parentPath string
-	path       string
+	Hash       string
+	Verb       string
+	Payload    string
+	ParentId   string
+	ParentPath string
+	Path       string
+	Exists     bool
 	fs         *btrfs.Driver
 }
 
 func Create(fs *btrfs.Driver, verb, payload, parentPath string) (*layer, error) {
 	l := &layer{
-		verb:       verb,
-		payload:    payload,
-		parentPath: parentPath,
+		Verb:       verb,
+		Payload:    payload,
+		ParentPath: parentPath,
+		Exists:     false,
 		fs:         fs,
 	}
-	l.parentId, err = l.getParentId()
+	var err error
+	l.ParentId, err = l.getParentId()
 	if err != nil {
 		return nil, err
 	}
 
-	l.hash, err = l.createHash()
+	l.Hash, err = l.createHash()
 	if err != nil {
 		return nil, err
 	}
 
-	l.path = fmt.Sprintf("layers/%s", l.hash)
+	l.Path = fmt.Sprintf("layers/%s", l.Hash)
 	if err = l.createLayer(); err != nil {
 		return nil, err
 	}
@@ -51,10 +54,10 @@ func (l *layer) getParentId() (string, error) {
 		parentId string
 		err      error
 	)
-	if strings.Index(l.parentPath, "images/") == 0 {
-		parentId, err = l.fs.GetSubvolumeParentUuid(l.parentPath)
+	if strings.Index(l.ParentPath, "images/") == 0 {
+		parentId, err = l.fs.GetSubvolumeParentUuid(l.ParentPath)
 	} else {
-		parentId, err = l.fs.GetSubvolumeUuid(l.parentPath)
+		parentId, err = l.fs.GetSubvolumeUuid(l.ParentPath)
 	}
 	if err != nil {
 		return "", err
@@ -66,12 +69,12 @@ func (l *layer) getParentId() (string, error) {
 func (l *layer) createHash() (string, error) {
 	h := sha1.New()
 
-	io.WriteString(h, l.parentId)
-	io.WriteString(h, l.verb)
-	io.WriteString(h, l.payload)
+	io.WriteString(h, l.ParentId)
+	io.WriteString(h, l.Verb)
+	io.WriteString(h, l.Payload)
 
-	if l.verb == "ADD" {
-		p := strings.Split(l.payload, " ")
+	if l.Verb == "ADD" {
+		p := strings.Split(l.Payload, " ")
 		sourceFile := p[0]
 
 		f, err := os.Open(sourceFile)
@@ -90,24 +93,25 @@ func (l *layer) createHash() (string, error) {
 }
 
 func (l *layer) createLayer() error {
-	if l.fs.Exists(l.path) {
-		if l.verb == "RUN_NOCACHE" {
+	if l.fs.Exists(l.Path) {
+		if l.Verb == "RUN_NOCACHE" {
 			if err := l.Remove(); err != nil {
 				return fmt.Errorf("Couldn't remove existing layer. %v", err)
 			}
 		} else {
+			l.Exists = true
 			return nil
 		}
 	}
 
-	if err := l.fs.Snapshot(l.parentPath, l.path, false); err != nil {
+	if err := l.fs.Snapshot(l.ParentPath, l.Path, false); err != nil {
 		return fmt.Errorf("Couldn't create filesystem for layer. %v", err)
 	}
 	return nil
 }
 
 func (l *layer) Remove() error {
-	if err := l.fs.Remove(l.path); err != nil {
+	if err := l.fs.Remove(l.Path); err != nil {
 		return fmt.Errorf("Couldn't remove layer. %v", err)
 	}
 	return nil

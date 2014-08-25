@@ -63,9 +63,13 @@ func runBuild(args []string) (exit int) {
 			fmt.Fprintln(os.Stderr, fmt.Sprintf("Couldn't create layer: %v.", err))
 			return 1
 		}
+		if l.Exists == true {
+			parentPath = l.Path
+			continue
+		}
 
-		fmt.Println(l.hash, cmd.Verb, cmd.Payload)
-		c := nspawn.Init(l.hash, fmt.Sprintf("%s/%s", home, l.path))
+		fmt.Println(l.Hash, cmd.Verb, cmd.Payload)
+		c := nspawn.Init(l.Hash, fmt.Sprintf("%s/%s", home, l.Path))
 
 		if err := c.Build(cmd.Verb, cmd.Payload); err != nil {
 			fmt.Fprintln(os.Stderr, fmt.Sprintf("Buildstep failed: %v.", err))
@@ -75,7 +79,7 @@ func runBuild(args []string) (exit int) {
 			return 1
 		}
 
-		parentPath = l.path
+		parentPath = l.Path
 	}
 	if err = fs.Snapshot(parentPath, newImagePath, true); err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't create filesystem for new image.", err)
