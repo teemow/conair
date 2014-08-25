@@ -37,7 +37,7 @@ src:
 	# Build test packages (we only want those two, so we use `-d` in go get)
 	#GOPATH=$(GOPATH) go get -d -v github.com/onsi/gomega
 
-$(BIN):
+$(BIN): $(SOURCE)
 	GOPATH=$(GOPATH) go build -a -o $(BIN)
 
 run-tests:
