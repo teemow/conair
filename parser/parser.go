@@ -12,8 +12,10 @@ type Command struct {
 }
 
 type Conairfile struct {
-	From     string
-	Commands []Command
+	From      string
+	Snapshots []string
+	Binds     []string
+	Commands  []Command
 }
 
 func readFile(path string) ([]string, error) {
@@ -38,6 +40,8 @@ func Parse(path string) (*Conairfile, error) {
 	}
 
 	d := &Conairfile{}
+	d.Snapshots = make([]string, 0)
+
 	for _, line := range lines {
 		if !strings.HasPrefix(line, "#") {
 			l := strings.SplitN(line, " ", 2)
@@ -50,6 +54,10 @@ func Parse(path string) (*Conairfile, error) {
 				switch cmd.Verb {
 				case "FROM":
 					d.From = cmd.Payload
+				case "BIND":
+					d.Binds = append(d.Binds, strings.Split(cmd.Payload, " ")...)
+				case "SNAPSHOT":
+					d.Snapshots = append(d.Snapshots, strings.Split(cmd.Payload, " ")...)
 				case "ADD":
 					d.Commands = append(d.Commands, cmd)
 				case "RUN":

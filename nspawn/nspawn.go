@@ -18,29 +18,12 @@ Documentation=man:systemd-nspawn(1)
 [Service]
 ExecStartPre=/usr/bin/sed -i "s/REPLACE_ME/${MACHINE_ID}/" {{.Directory}}/%i/etc/machine-id
 ExecStartPre=/usr/bin/chmod -w {{.Directory}}/%i/etc/machine-id
-ExecStart=/usr/bin/systemd-nspawn --machine %i --uuid=${MACHINE_ID} --quiet --private-network --network-veth --network-bridge={{.Bridge}} --keep-unit --boot --link-journal=guest --directory={{.Directory}}/%i
+ExecStart=/usr/bin/systemd-nspawn --machine %i --uuid=${MACHINE_ID} --quiet --private-network --network-veth --network-bridge={{.Bridge}} --keep-unit --boot --link-journal=guest --directory={{.Directory}}/%i ${BIND} 
 KillMode=mixed
 Type=notify
 
 [Install]
 WantedBy=multi-user.target
-`
-const nspawnConfigTemplate string = `[Service]
-Environment="MACHINE_ID={{.MachineId}}"
-`
-const nspawnMachineIdTemplate string = `{{.MachineId}}
-`
-const buildstepTemplate string = `#!/bin/sh
-mkdir -p /run/systemd/resolve
-echo 'nameserver 8.8.8.8' > /run/systemd/resolve/resolv.conf
-
-{{.Payload}}
-
-rc=$?
-
-rm -f /run/systemd/resolve/resolv.conf
-
-exit $rc
 `
 
 type unit struct {
