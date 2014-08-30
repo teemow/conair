@@ -77,8 +77,11 @@ func (c *Container) createConfig() error {
 	}
 
 	if len(c.Binds) > 0 {
-		// currently only one bind workds...
-		conf.Bind = fmt.Sprintf("--bind=%s", c.Binds[0])
+		tmp := make([]string, 0)
+		for _, bind := range c.Binds {
+			tmp = append(tmp, fmt.Sprintf("--bind=%s", bind))
+		}
+		conf.Bind = strings.Join(tmp, " ")
 	}
 
 	if err := os.Mkdir(c.ConfigPath, 0755); err != nil {

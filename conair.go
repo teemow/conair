@@ -31,6 +31,17 @@ var (
 	}{}
 )
 
+type stringSlice []string
+
+func (s *stringSlice) String() string {
+	return fmt.Sprintf("%v", *s)
+}
+
+func (s *stringSlice) Set(value string) error {
+	*s = append(*s, value)
+	return nil
+}
+
 func init() {
 	globalFlagset.BoolVar(&globalFlags.Debug, "debug", false, "Print out more debug information to stderr")
 	globalFlagset.BoolVar(&globalFlags.Version, "version", false, "Print the version and exit")
@@ -67,6 +78,7 @@ func init() {
 		cmdBootstrap,
 		cmdInspect,
 		cmdIp,
+		cmdSnapshot,
 		cmdHelp,
 		cmdVersion,
 	}

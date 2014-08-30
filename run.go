@@ -10,12 +10,12 @@ import (
 )
 
 var (
-	flagBind     string
-	flagSnapshot string
+	flagBind     stringSlice
+	flagSnapshot stringSlice
 	cmdRun       = &Command{
 		Name:    "run",
 		Summary: "Run a container",
-		Usage:   "[-bind=S] <image> [<container>]",
+		Usage:   "[-bind=S] [-snapshot=S] <image> [<container>]",
 		Run:     runRun,
 		Description: `Run a new container
 
@@ -26,14 +26,13 @@ You can either bind mount a directory into the container or take a snapshot of a
 
 conair run -bind=/var/data:/data base test
 conair run -snapshot=mysnapshot:/data base test
-
 `,
 	}
 )
 
 func init() {
-	cmdRun.Flags.StringVar(&flagBind, "bind", "", "Bind mount a directory into the container")
-	cmdRun.Flags.StringVar(&flagSnapshot, "snapshot", "", "Add a snapshot into the container")
+	cmdRun.Flags.Var(&flagBind, "bind", "Bind mount a directory into the container")
+	cmdRun.Flags.Var(&flagSnapshot, "snapshot", "Add a snapshot into the container")
 }
 
 func runRun(args []string) (exit int) {
@@ -61,11 +60,11 @@ func runRun(args []string) (exit int) {
 	}
 
 	c := nspawn.Init(container, fmt.Sprintf("%s/%s", getContainerPath(), container))
-	if flagBind != "" {
-		c.SetBinds([]string{flagBind})
+	if len(flagBind) > 0 {
+		c.SetBinds(flagBind)
 	}
-	if flagSnapshot != "" {
-		c.SetSnapshots([]string{flagSnapshot})
+	if len(flagSnapshot) > 0 {
+		c.SetSnapshots(flagSnapshot)
 	}
 
 	for _, snap := range c.Snapshots {
