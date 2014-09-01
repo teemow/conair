@@ -83,12 +83,13 @@ func runBuild(args []string) (exit int) {
 			fmt.Fprintln(os.Stderr, fmt.Sprintf("Couldn't create layer: %v.", err))
 			return 1
 		}
+		fmt.Println(l.Hash, cmd.Verb, cmd.Payload)
+
 		if l.Exists == true {
 			parentPath = l.Path
 			continue
 		}
 
-		fmt.Println(l.Hash, cmd.Verb, cmd.Payload)
 		c := nspawn.Init(l.Hash, fmt.Sprintf("%s/%s", home, l.Path))
 		c.SetBinds(append(f.Binds, f.Snapshots...))
 
