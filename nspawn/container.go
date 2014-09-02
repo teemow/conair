@@ -249,6 +249,8 @@ func (c *Container) Build(verb, payload string) error {
 		cmd, err = c.pkg(payload)
 	case "ENABLE":
 		cmd, err = c.enable(payload)
+	default:
+		return nil
 	}
 
 	if err != nil {
@@ -272,7 +274,7 @@ func (c *Container) Build(verb, payload string) error {
 		return err
 	}
 
-	if verb == "RUN" || verb == "RUN_NOCACHE" {
+	if verb != "ADD" {
 		if err := c.cleanupBuildstep(); err != nil {
 			return err
 		}
@@ -291,8 +293,6 @@ func (c *Container) run(payload string) (*exec.Cmd, error) {
 		params = append(params, fmt.Sprintf("--bind=%s", bind))
 	}
 	params = append(params, fmt.Sprintf("/%s", c.Buildstep))
-
-	fmt.Println(params)
 
 	return exec.Command("/usr/bin/systemd-nspawn", params...), nil
 }
