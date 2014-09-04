@@ -73,7 +73,33 @@ func (d *Driver) Snapshot(from, to string, readonly bool) error {
 	} else {
 		cmd = raw("subvolume", "snapshot", fromPath, toPath)
 	}
-	return cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return err
+	}
+
+	// create recursive snapshots.
+	subvolumes, err := d.ListSubSubvolumes(from)
+	if err != nil {
+		return err
+	}
+
+	for _, subvol := range subvolumes {
+		subvolFrom := fmt.Sprintf("%s/%s", from, subvol)
+		subvolTo := fmt.Sprintf("%s/%s", to, subvol)
+
+		// delete empty directory
+		if d.Exists(subvolTo) {
+			if err := os.Remove(fmt.Sprintf("%s/%s", d.home, subvolTo)); err != nil {
+				return err
+			}
+		}
+
+		err = d.Snapshot(subvolFrom, subvolTo, readonly)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *Driver) Subvolume(vol string) error {
@@ -125,34 +151,34 @@ func (d *Driver) GetSubvolumeUuid(vol string) (string, error) {
 	return d.GetSubvolumeDetail(vol, "uuid")
 }
 
-func (d *Driver) ListSnapshots() ([]string, error) {
-	var lines []string
+func (d *Driver) ListSubvolumes() ([]string, error) {
+	var volumes []string
 
 	// find sub-subvolumes
 	cmd := raw("subvolume", "list", "-o", d.home, "-u")
 
 	output, err := cmd.StdoutPipe()
 	if err != nil {
-		return lines, fmt.Errorf("Can't access subvolume list of %s: %v", d.home, err)
+		return volumes, fmt.Errorf("Can't access subvolume list of %s: %v", d.home, err)
 	}
 	defer output.Close()
 	err = cmd.Start()
 	if err != nil {
-		return lines, err
+		return volumes, err
 	}
 
 	scanner := bufio.NewScanner(output)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.Contains(line, fmt.Sprintf("__active%s", d.home)) {
-			lines = append(lines, line)
+			volumes = append(volumes, line)
 		}
 	}
-	return lines, nil
+	return volumes, nil
 }
 
 func (d *Driver) GetLayerByUuid(uuid string) (string, error) {
-	layers, err := d.ListSnapshots()
+	layers, err := d.ListSubvolumes()
 	if err != nil {
 		return "", err
 	}
@@ -168,11 +194,13 @@ func (d *Driver) GetLayerByUuid(uuid string) (string, error) {
 	return "", fmt.Errorf("No layer found")
 }
 
-func (d *Driver) Remove(vol string) error {
+func (d *Driver) ListSubSubvolumes(vol string) ([]string, error) {
+	var volumes []string
+
 	volPath := fmt.Sprintf("%s/%s", d.home, vol)
 
 	if !d.Exists(vol) {
-		return fmt.Errorf("Volume does not exist: %s", volPath)
+		return volumes, fmt.Errorf("Volume does not exist: %s", volPath)
 	}
 
 	// find sub-subvolumes
@@ -180,12 +208,12 @@ func (d *Driver) Remove(vol string) error {
 
 	output, err := cmd.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("Can't access subvolume list of %s: %v", volPath, err)
+		return volumes, fmt.Errorf("Can't access subvolume list of %s: %v", volPath, err)
 	}
 	defer output.Close()
 	err = cmd.Start()
 	if err != nil {
-		return err
+		return volumes, err
 	}
 
 	scanner := bufio.NewScanner(output)
@@ -194,15 +222,32 @@ func (d *Driver) Remove(vol string) error {
 		if len(line) > 8 {
 			subvol := strings.Join(line[8:], " ")
 			// remove beginning of volume path - relative to conair home
-			subvol = strings.Replace(subvol, fmt.Sprintf("__active%s", d.home), "", 1)
-			if err := d.Remove(subvol); err != nil {
-				return err
-			}
+			volumes = append(volumes, strings.Replace(subvol, fmt.Sprintf("__active%s/", volPath), "", 1))
 		}
 	}
 	err = scanner.Err()
 	if err != nil {
-		return fmt.Errorf("Can't read subvolume list of %s: %v", volPath, err)
+		return volumes, fmt.Errorf("Can't read subvolume list of %s: %v", volPath, err)
+	}
+	return volumes, nil
+}
+
+func (d *Driver) Remove(vol string) error {
+	volPath := fmt.Sprintf("%s/%s", d.home, vol)
+
+	if !d.Exists(vol) {
+		return fmt.Errorf("Volume does not exist: %s", volPath)
+	}
+
+	subvolumes, err := d.ListSubSubvolumes(vol)
+	if err != nil {
+		return err
+	}
+
+	for _, subvol := range subvolumes {
+		if err := d.Remove(fmt.Sprintf("%s/%s", vol, subvol)); err != nil {
+			return err
+		}
 	}
 
 	return raw("subvolume", "delete", volPath).Run()

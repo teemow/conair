@@ -12,16 +12,40 @@ import (
 	"code.google.com/p/go-uuid/uuid"
 )
 
+const (
+	nspawnConfigTemplate string = `[Service]
+Environment="MACHINE_ID={{.MachineId}}"
+Environment="BIND={{.Bind}}"
+`
+	nspawnMachineIdTemplate string = `{{.MachineId}}
+`
+	buildstepTemplate string = `#!/bin/sh
+mkdir -p /run/systemd/resolve
+echo 'nameserver 8.8.8.8' > /run/systemd/resolve/resolv.conf
+
+{{.Payload}}
+
+rc=$?
+
+rm -f /run/systemd/resolve/resolv.conf
+
+exit $rc
+`
+)
+
 type Container struct {
 	Name       string
 	Unit       string
 	Path       string
 	Buildstep  string
 	ConfigPath string
+	Binds      []string
+	Snapshots  []string
 }
 
 type config struct {
 	MachineId string
+	Bind      string
 }
 
 func Init(name, path string) Container {
@@ -30,15 +54,34 @@ func Init(name, path string) Container {
 		Unit:      fmt.Sprintf("conair@%s.service", name),
 		Path:      path,
 		Buildstep: ".conairbuildstep",
+		Binds:     make([]string, 0),
+		Snapshots: make([]string, 0),
 	}
 	c.ConfigPath = fmt.Sprintf("%s/%s.d", systemdPath, c.Unit)
 
 	return c
 }
 
+func (c *Container) SetSnapshots(snapshots []string) {
+	c.Snapshots = snapshots
+}
+
+func (c *Container) SetBinds(binds []string) {
+	c.Binds = binds
+}
+
 func (c *Container) createConfig() error {
 	conf := config{
 		MachineId: strings.Replace(uuid.New(), "-", "", -1),
+		Bind:      "",
+	}
+
+	if len(c.Binds) > 0 {
+		tmp := make([]string, 0)
+		for _, bind := range c.Binds {
+			tmp = append(tmp, fmt.Sprintf("--bind=%s", bind))
+		}
+		conf.Bind = strings.Join(tmp, " ")
 	}
 
 	if err := os.Mkdir(c.ConfigPath, 0755); err != nil {
@@ -206,6 +249,8 @@ func (c *Container) Build(verb, payload string) error {
 		cmd, err = c.pkg(payload)
 	case "ENABLE":
 		cmd, err = c.enable(payload)
+	default:
+		return nil
 	}
 
 	if err != nil {
@@ -229,7 +274,7 @@ func (c *Container) Build(verb, payload string) error {
 		return err
 	}
 
-	if verb == "RUN" || verb == "RUN_NOCACHE" {
+	if verb != "ADD" {
 		if err := c.cleanupBuildstep(); err != nil {
 			return err
 		}
@@ -242,12 +287,14 @@ func (c *Container) run(payload string) (*exec.Cmd, error) {
 		return nil, err
 	}
 
-	return exec.Command(
-		"/usr/bin/systemd-nspawn",
-		"--quiet",
-		fmt.Sprintf("--directory=%s", c.Path),
-		fmt.Sprintf("/%s", c.Buildstep),
-	), nil
+	params := make([]string, 0)
+	params = append(params, "--quiet", fmt.Sprintf("--directory=%s", c.Path))
+	for _, bind := range c.Binds {
+		params = append(params, fmt.Sprintf("--bind=%s", bind))
+	}
+	params = append(params, fmt.Sprintf("/%s", c.Buildstep))
+
+	return exec.Command("/usr/bin/systemd-nspawn", params...), nil
 }
 
 func (c *Container) add(payload string) (*exec.Cmd, error) {

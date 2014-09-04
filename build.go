@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/giantswarm/conair/btrfs"
 	"github.com/giantswarm/conair/layer"
@@ -57,19 +58,40 @@ func runBuild(args []string) (exit int) {
 	image := f.From
 	parentPath := fmt.Sprintf("images/%s", image)
 
+	for i, snap := range f.Snapshots {
+		paths := strings.Split(snap, ":")
+		if len(paths) < 2 {
+			fmt.Fprintln(os.Stderr, "SNAPSHOT definition is unreadable. Please use <snapshot name>:<container path> notation.")
+			return 1
+		}
+
+		// check if snapshot exists - otherwise create a new subvolume
+		snapshotPath := fmt.Sprintf("snapshots/%s", paths[0])
+		if !fs.Exists(snapshotPath) {
+			if err := fs.Subvolume(snapshotPath); err != nil {
+				fmt.Fprintln(os.Stderr, fmt.Sprintf("Couldn't create snapshot '%s'.", snapshotPath))
+				return 1
+			}
+		}
+
+		f.Snapshots[i] = fmt.Sprintf("%s/snapshots/%s", home, snap)
+	}
+
 	for _, cmd := range f.Commands {
 		l, err := layer.Create(fs, cmd.Verb, cmd.Payload, parentPath)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, fmt.Sprintf("Couldn't create layer: %v.", err))
 			return 1
 		}
+		fmt.Println(l.Hash, cmd.Verb, cmd.Payload)
+
 		if l.Exists == true {
 			parentPath = l.Path
 			continue
 		}
 
-		fmt.Println(l.Hash, cmd.Verb, cmd.Payload)
 		c := nspawn.Init(l.Hash, fmt.Sprintf("%s/%s", home, l.Path))
+		c.SetBinds(append(f.Binds, f.Snapshots...))
 
 		if err := c.Build(cmd.Verb, cmd.Payload); err != nil {
 			fmt.Fprintln(os.Stderr, fmt.Sprintf("Buildstep failed: %v.", err))
