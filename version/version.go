@@ -4,7 +4,7 @@ import (
 	"github.com/coreos/go-semver/semver"
 )
 
-const Version = "0.2.2+git"
+const Version = "0.2.3"
 
 var SemVersion semver.Version
 
