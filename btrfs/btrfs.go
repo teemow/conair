@@ -170,7 +170,10 @@ func (d *Driver) ListSubvolumes() ([]string, error) {
 	scanner := bufio.NewScanner(output)
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.Contains(line, fmt.Sprintf("__active%s", d.home)) {
+		if strings.Contains(line, "__active") {
+			line = strings.Replace(line, "__active/", "", 1)
+		}
+		if strings.Contains(line, fmt.Sprintf("%s", strings.Replace(d.home, "/", "", 1))) {
 			volumes = append(volumes, line)
 		}
 	}
@@ -187,7 +190,7 @@ func (d *Driver) GetLayerByUuid(uuid string) (string, error) {
 		if strings.Contains(layer, fmt.Sprintf(" uuid %s ", uuid)) {
 			layerDetails := strings.Split(layer, " ")
 			if len(layerDetails) > 10 {
-				return strings.Replace(layerDetails[10], fmt.Sprintf("__active%s/", d.home), "", 1), nil
+				return strings.Replace(layerDetails[10], strings.Replace(d.home, "/", "", 1), "", 1), nil
 			}
 		}
 	}
@@ -222,7 +225,10 @@ func (d *Driver) ListSubSubvolumes(vol string) ([]string, error) {
 		if len(line) > 8 {
 			subvol := strings.Join(line[8:], " ")
 			// remove beginning of volume path - relative to conair home
-			volumes = append(volumes, strings.Replace(subvol, fmt.Sprintf("__active%s/", volPath), "", 1))
+			if strings.Contains(subvol, "__active") {
+				subvol = strings.Replace(subvol, "__active/", "", 1)
+			}
+			volumes = append(volumes, strings.Replace(subvol, fmt.Sprintf("%s/", strings.Replace(volPath, "/", "", 1)), "", 1))
 		}
 	}
 	err = scanner.Err()
