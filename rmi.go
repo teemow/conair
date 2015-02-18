@@ -43,7 +43,7 @@ func runRmi(args []string) (exit int) {
 			return 1
 		}
 
-		layer, _ = fs.GetLayerByUuid(uuid)
+		layer, err = fs.GetLayerByUuid(uuid)
 		if err != nil {
 			layer = imagePath
 		}
