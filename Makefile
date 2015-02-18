@@ -17,7 +17,7 @@ all: get-deps $(BIN)
 clean:
 	rm -rf $(BUILD_PATH)/src $(BUILD_PATH)/pkg $(BUILD_PATH)/bin $(BIN)
 
-install:
+install: $(BIN)
 	cp conair /usr/local/bin/
 
 get-deps: src
