@@ -1,12 +1,12 @@
 PROJECT=conair
 
 BUILD_PATH := $(shell pwd)/
-
+VERSION := $(shell cat VERSION)
 PROJECT_PATH := $(BUILD_PATH)/src/github.com/giantswarm
 
 BIN := $(PROJECT)
 
-.PHONY=clean run-test get-deps update-deps fmt run-tests
+.PHONY: all clean get-deps fmt run-tests install
 
 GOPATH := $(BUILD_PATH)
 
@@ -17,7 +17,7 @@ all: get-deps $(BIN)
 clean:
 	rm -rf $(BUILD_PATH)/src $(BUILD_PATH)/pkg $(BUILD_PATH)/bin $(BIN)
 
-install:
+install: $(BIN)
 	cp conair /usr/local/bin/
 
 get-deps: src
@@ -38,7 +38,7 @@ src:
 	#GOPATH=$(GOPATH) go get -d -v github.com/onsi/gomega
 
 $(BIN): $(SOURCE)
-	GOPATH=$(GOPATH) go build -a -o $(BIN)
+	GOPATH=$(GOPATH) go build -ldflags "-X main.projectVersion $(VERSION)" -a -o $(BIN)
 
 run-tests:
 	GOPATH=$(GOPATH) go test ./...

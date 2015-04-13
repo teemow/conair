@@ -29,6 +29,8 @@ var (
 		Debug   bool
 		Version bool
 	}{}
+
+	projectVersion string
 )
 
 type stringSlice []string
