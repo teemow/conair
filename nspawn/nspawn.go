@@ -18,7 +18,7 @@ Documentation=man:systemd-nspawn(1)
 [Service]
 ExecStartPre=/usr/bin/sed -i "s/REPLACE_ME/${MACHINE_ID}/" {{.Directory}}/%i/etc/machine-id
 ExecStartPre=/usr/bin/chmod -w {{.Directory}}/%i/etc/machine-id
-ExecStart=/usr/bin/systemd-nspawn --machine %i --uuid=${MACHINE_ID} --quiet --private-network --network-veth --network-bridge={{.Bridge}} --keep-unit --boot --link-journal=guest --directory={{.Directory}}/%i $BIND
+ExecStart=/usr/bin/systemd-nspawn --machine %i --uuid=${MACHINE_ID} --capability=all --quiet --private-network --network-veth --network-bridge={{.Bridge}} --keep-unit --boot --link-journal=guest --directory={{.Directory}}/%i $BIND
 KillMode=mixed
 Type=notify
 
