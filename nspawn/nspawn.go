@@ -90,6 +90,9 @@ func CreateImage(name, path string) error {
 	c := Init(name, fmt.Sprintf("%s/%s", path, name))
 
 	c.Build("ENABLE", "systemd-networkd systemd-resolved")
+	c.Build("RUN", "mkdir -p /etc/systemd/resolved.conf.d/")
+	c.Build("RUN", "echo '[Resolve]' > /etc/systemd/resolved.conf.d/conair.conf")
+	c.Build("RUN", "echo 'DNS=8.8.8.8 8.8.4.4' >> /etc/systemd/resolved.conf.d/conair.conf")
 	c.Build("RUN", "rm -f /etc/resolv.conf")
 	c.Build("RUN", "ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf")
 

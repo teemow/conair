@@ -39,8 +39,8 @@ Virtualization=container
 Name=host0
 
 [Network]
-DHCP=both
-IPv4LL=yes
+DHCP=v4
+IPv4LL=no
 
 [Route]
 Gateway={{.Destination}}.1

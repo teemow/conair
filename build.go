@@ -93,6 +93,8 @@ func runBuild(args []string) (exit int) {
 		c := nspawn.Init(l.Hash, fmt.Sprintf("%s/%s", home, l.Path))
 		c.SetBinds(append(f.Binds, f.Snapshots...))
 
+		c.Build("RUN", "rm -f /etc/resolv.conf")
+
 		if err := c.Build(cmd.Verb, cmd.Payload); err != nil {
 			fmt.Fprintln(os.Stderr, fmt.Sprintf("Buildstep failed: %v.", err))
 			if err = l.Remove(); err != nil {
@@ -101,8 +103,11 @@ func runBuild(args []string) (exit int) {
 			return 1
 		}
 
+		c.Build("RUN", "ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf")
+
 		parentPath = l.Path
 	}
+
 	if err = fs.Snapshot(parentPath, newImagePath, true); err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't create filesystem for new image.", err)
 		return 1

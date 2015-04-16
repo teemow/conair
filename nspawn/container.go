@@ -20,14 +20,10 @@ Environment="BIND={{.Bind}}"
 	nspawnMachineIdTemplate string = `{{.MachineId}}
 `
 	buildstepTemplate string = `#!/bin/sh
-mkdir -p /run/systemd/resolve
-echo 'nameserver 8.8.8.8' > /run/systemd/resolve/resolv.conf
 
 {{.Payload}}
 
 rc=$?
-
-rm -f /run/systemd/resolve/resolv.conf
 
 exit $rc
 `
