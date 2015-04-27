@@ -13,7 +13,7 @@ const (
 
 	bridge      = "nspawn0"
 	destination = "192.168.13.0/24"
-	home        = "/var/lib/conair"
+	home        = "/var/lib"
 	hub         = "http://conair.teemow.com/images"
 )
 
@@ -103,7 +103,7 @@ func getContainerPath() string {
 }
 
 func getImagesPath() string {
-	return fmt.Sprintf("%s/images", home)
+	return fmt.Sprintf("%s/machines", home)
 }
 
 func main() {

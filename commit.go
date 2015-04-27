@@ -29,7 +29,7 @@ func runCommit(args []string) (exit int) {
 	} else {
 		image = args[1]
 	}
-	imagePath := fmt.Sprintf("images/%s", image)
+	imagePath := fmt.Sprintf("machines/%s", image)
 
 	fs, _ := btrfs.Init(home)
 	if err := fs.Snapshot(containerPath, imagePath, true); err != nil {

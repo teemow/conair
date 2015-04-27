@@ -23,7 +23,7 @@ func runBootstrap(args []string) (exit int) {
 	}
 
 	image := args[0]
-	imagePath := fmt.Sprintf("images/%s", image)
+	imagePath := fmt.Sprintf("machines/%s", image)
 
 	fs, err := btrfs.Init(home)
 	if err != nil {

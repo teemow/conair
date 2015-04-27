@@ -41,7 +41,7 @@ func Create(fs *btrfs.Driver, verb, payload, parentPath string) (*layer, error) 
 		return nil, err
 	}
 
-	l.Path = fmt.Sprintf("layers/%s", l.Hash)
+	l.Path = fmt.Sprintf("conair/layers/%s", l.Hash)
 	if err = l.createLayer(); err != nil {
 		return nil, err
 	}
@@ -54,7 +54,7 @@ func (l *layer) getParentId() (string, error) {
 		parentId string
 		err      error
 	)
-	if strings.Index(l.ParentPath, "images/") == 0 {
+	if strings.Index(l.ParentPath, "machines/") == 0 {
 		parentId, err = l.fs.GetSubvolumeParentUuid(l.ParentPath)
 	} else {
 		parentId, err = l.fs.GetSubvolumeUuid(l.ParentPath)

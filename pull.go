@@ -30,7 +30,7 @@ func runPull(args []string) (exit int) {
 	} else {
 		newImage = image
 	}
-	newImagePath := fmt.Sprintf("images/%s", newImage)
+	newImagePath := fmt.Sprintf("machines/%s", newImage)
 
 	fs, err := btrfs.Init(home)
 	if err != nil {

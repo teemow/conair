@@ -22,7 +22,7 @@ func runRmi(args []string) (exit int) {
 	}
 
 	image := args[0]
-	imagePath := fmt.Sprintf("images/%s", image)
+	imagePath := fmt.Sprintf("machines/%s", image)
 
 	fs, _ := btrfs.Init(home)
 
@@ -55,7 +55,7 @@ func runRmi(args []string) (exit int) {
 		}
 
 		fmt.Println(imagePath)
-		if strings.Index(layer, "images/") == 0 || noParent {
+		if strings.Index(layer, "machines/") == 0 || noParent {
 			break
 		} else {
 			imagePath = layer

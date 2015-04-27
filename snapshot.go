@@ -29,7 +29,7 @@ func runSnapshot(args []string) (exit int) {
 		}
 
 		snapshot := args[1]
-		snapshotPath := fmt.Sprintf("snapshots/%s", snapshot)
+		snapshotPath := fmt.Sprintf("conair/snapshots/%s", snapshot)
 
 		fs, _ := btrfs.Init(home)
 
@@ -49,7 +49,7 @@ func runSnapshot(args []string) (exit int) {
 		}
 
 		snapshot := args[1]
-		snapshotPath := fmt.Sprintf("snapshots/%s", snapshot)
+		snapshotPath := fmt.Sprintf("conair/snapshots/%s", snapshot)
 
 		fs, _ := btrfs.Init(home)
 
@@ -63,7 +63,7 @@ func runSnapshot(args []string) (exit int) {
 			return 1
 		}
 	case "ls":
-		snapshots, _ := ioutil.ReadDir(fmt.Sprintf("%s/snapshots", home))
+		snapshots, _ := ioutil.ReadDir(fmt.Sprintf("%s/conair/snapshots", home))
 		if len(snapshots) < 1 {
 			fmt.Println("No snapshots found.")
 			return
