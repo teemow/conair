@@ -36,13 +36,13 @@ func Init(home string) (*Driver, error) {
 	if err := os.MkdirAll(home, 0700); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(fmt.Sprintf("%s/%s", home, "/images"), 0700); err != nil {
+	if err := os.MkdirAll(fmt.Sprintf("%s/%s", home, "/machines"), 0700); err != nil {
 		return nil, err
 	}
 	if err := os.MkdirAll(fmt.Sprintf("%s/%s", home, "/container"), 0700); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(fmt.Sprintf("%s/%s", home, "/layers"), 0700); err != nil {
+	if err := os.MkdirAll(fmt.Sprintf("%s/%s", home, "/conair/layers"), 0700); err != nil {
 		return nil, err
 	}
 

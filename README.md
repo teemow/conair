@@ -33,8 +33,8 @@ conair pull base     # download an image
 
 Or DIY:
 ```
-btrfs subvolume create /var/lib/conair/images/base
-pacstrap -i -c -d /var/lib/conair/images/base base
+btrfs subvolume create /var/lib/machines/base
+pacstrap -i -c -d /var/lib/machines/base base
 ```
 
 ## Build an image

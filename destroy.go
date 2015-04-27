@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/giantswarm/conair/iptables"
 	"github.com/giantswarm/conair/networkd"
 	"github.com/giantswarm/conair/nspawn"
 )
@@ -17,13 +16,7 @@ var cmdDestroy = &Command{
 }
 
 func runDestroy(args []string) (exit int) {
-	err := iptables.DeleteBridgeForwarding(bridge, destination)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Couldn't remove iptables rules.", err)
-		return 1
-	}
-
-	err = networkd.DeleteBridge(bridge)
+	err := networkd.RemoveHostNetwork()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't remove bridge.", err)
 		return 1

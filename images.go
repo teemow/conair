@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
+	"os/exec"
+	"strings"
 )
 
 var cmdImages = &Command{
@@ -14,15 +16,18 @@ var cmdImages = &Command{
 
 func runImages(args []string) (exit int) {
 
-	files, _ := ioutil.ReadDir(getImagesPath())
-	if len(files) < 1 {
-		fmt.Println("No images found.")
-		return
+	path, err := exec.LookPath("machinectl")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "machinectl not found.")
 	}
 
-	fmt.Println("Available images:")
-	for _, f := range files {
-		fmt.Println(f.Name())
+	args = append([]string{"list-images"}, args...)
+
+	output, err := exec.Command(path, args...).CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "machinectl failed: machinctl %v: %s (%s)", strings.Join(args, " "), output, err)
 	}
+	fmt.Fprintln(os.Stdout, string(output[:]))
+
 	return
 }

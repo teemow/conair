@@ -42,7 +42,7 @@ func runRun(args []string) (exit int) {
 	}
 
 	image := args[0]
-	imagePath := fmt.Sprintf("images/%s", image)
+	imagePath := fmt.Sprintf("machines/%s", image)
 
 	var container string
 	if len(args) < 2 {
@@ -75,7 +75,7 @@ func runRun(args []string) (exit int) {
 			return 1
 		}
 
-		from := fmt.Sprintf("snapshots/%s", paths[0])
+		from := fmt.Sprintf("conair/snapshots/%s", paths[0])
 		to := fmt.Sprintf("%s/%s", containerPath, paths[1])
 
 		if fs.Exists(to) {
