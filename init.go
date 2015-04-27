@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/giantswarm/conair/btrfs"
-	"github.com/giantswarm/conair/iptables"
 	"github.com/giantswarm/conair/networkd"
 	"github.com/giantswarm/conair/nspawn"
 )
@@ -13,21 +12,15 @@ import (
 var cmdInit = &Command{
 	Name:        "init",
 	Description: "Initialize conair environment",
-	Summary:     "Setup a bridge for the containers and add some iptables forwarding",
+	Summary:     "Setup a network and systemd units for the containers",
 	Run:         runInit,
 }
 
 func runInit(args []string) (exit int) {
-	fmt.Printf("Create bridge: %s\n", bridge)
-	err := networkd.CreateBridge(bridge, destination)
+	fmt.Println("Create network")
+	err := networkd.DefineHostNetwork(bridge, destination)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't create bridge.", err)
-		return 1
-	}
-
-	err = iptables.AddBridgeForwarding(bridge, destination)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "Couldn't add forwarding to bridge.", err)
 		return 1
 	}
 

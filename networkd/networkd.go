@@ -10,37 +10,39 @@ import (
 
 type networkDevice struct {
 	Name        string
-	Kind        string
 	Destination string
 }
 
-const networkdPath string = "/etc/systemd/network"
+const (
+	networkdPath         = "/etc/systemd/network"
+	bridgeHostFile       = "80-container-bridge.netdev"
+	networkHostFile      = "82-container-bridge.network"
+	networkContainerFile = "80-container-host0.network"
+)
 
-const netDevTemplate string = `[NetDev]
+const bridgeHostTemplate string = `[NetDev]
 Name={{.Name}}
-Kind={{.Kind}}
+Kind=bridge
 `
 
-const networkTemplate string = `[Match]
+const networkHostTemplate string = `[Match]
 Name={{.Name}}
 
 [Network]
 Address={{.Destination}}.1/24
+LinkLocalAddressing=yes
 DHCPServer=yes
 DNS=8.8.8.8
-
-[Route]
-Gateway={{.Destination}}.1
-Destination={{.Destination}}.0/24
+IPMasquerade=yes
 `
 
-const networkClientTemplate string = `[Match]
+const networkContainerTemplate string = `[Match]
 Virtualization=container
 Name=host0
 
 [Network]
-DHCP=both
-IPv4LL=yes
+DHCP=yes
+LinkLocalAddressing=yes
 
 [Route]
 Gateway={{.Destination}}.1
@@ -69,25 +71,20 @@ func storeNetworkDefinition(dev networkDevice, text, path string) error {
 	return nil
 }
 
-func getDeviceFilename(bridge string) string {
-	return strings.Join([]string{"80-", bridge, ".netdev"}, "")
-}
+func DefineHostNetwork(bridge, destination string) error {
+	dev := networkDevice{
+		Name:        bridge,
+		Destination: strings.Replace(destination, ".0/24", "", 1),
+	}
 
-func getNetworkFilename(bridge string) string {
-	return strings.Join([]string{"82-", bridge, ".network"}, "")
-}
-
-func CreateBridge(bridge, destination string) error {
-	dev := networkDevice{bridge, "bridge", strings.Replace(destination, ".0/24", "", 1)}
-
-	netDevPath := fmt.Sprintf("%s/%s", networkdPath, getDeviceFilename(bridge))
-	err := storeNetworkDefinition(dev, netDevTemplate, netDevPath)
+	bridgeHostPath := fmt.Sprintf("%s/%s", networkdPath, bridgeHostFile)
+	err := storeNetworkDefinition(dev, bridgeHostTemplate, bridgeHostPath)
 	if err != nil {
 		return err
 	}
 
-	networkPath := fmt.Sprintf("%s/%s", networkdPath, getNetworkFilename(bridge))
-	err = storeNetworkDefinition(dev, networkTemplate, networkPath)
+	networkHostPath := fmt.Sprintf("%s/%s", networkdPath, networkHostFile)
+	err = storeNetworkDefinition(dev, networkHostTemplate, networkHostPath)
 	if err != nil {
 		return err
 	}
@@ -95,30 +92,22 @@ func CreateBridge(bridge, destination string) error {
 	return restart()
 }
 
-func CreateClientNetwork(containerPath, destination string) error {
-	dev := networkDevice{Destination: strings.Replace(destination, ".0/24", "", 1)}
+func DefineContainerNetwork(containerPath, destination string) error {
+	dev := networkDevice{
+		Destination: strings.Replace(destination, ".0/24", "", 1),
+	}
 
-	networkClientPath := fmt.Sprintf("%s/%s/80-container-host0.network", containerPath, networkdPath)
-	return storeNetworkDefinition(dev, networkClientTemplate, networkClientPath)
+	networkContainerPath := fmt.Sprintf("%s/%s/%s", containerPath, networkdPath, networkContainerFile)
+	return storeNetworkDefinition(dev, networkContainerTemplate, networkContainerPath)
 }
 
-func DeleteBridge(bridge string) error {
-	err := os.Remove(fmt.Sprintf("%s/%s", networkdPath, getDeviceFilename(bridge)))
+func RemoveHostNetwork() error {
+	err := os.Remove(fmt.Sprintf("%s/%s", networkdPath, bridgeHostFile))
 	if err != nil {
 		return err
 	}
 
-	err = os.Remove(fmt.Sprintf("%s/%s", networkdPath, getNetworkFilename(bridge)))
-	if err != nil {
-		return err
-	}
-
-	err = exec.Command("ip", "link", "set", bridge, "down").Run()
-	if err != nil {
-		return err
-	}
-
-	err = exec.Command("brctl", "delbr", bridge).Run()
+	err = os.Remove(fmt.Sprintf("%s/%s", networkdPath, networkHostFile))
 	if err != nil {
 		return err
 	}

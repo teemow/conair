@@ -43,10 +43,11 @@ func runBootstrap(args []string) (exit int) {
 		return 1
 	}
 
-	err = networkd.CreateClientNetwork(fmt.Sprintf("%s/%s", getImagesPath(), image), destination)
+	err = networkd.DefineContainerNetwork(fmt.Sprintf("%s/%s", getImagesPath(), image), destination)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't add networking to new image.", err)
 		return 1
 	}
+
 	return 0
 }
