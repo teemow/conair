@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-
-	"github.com/giantswarm/conair/version"
 )
 
 var cmdVersion = &Command{
@@ -14,6 +12,6 @@ var cmdVersion = &Command{
 }
 
 func runVersion(args []string) (exit int) {
-	fmt.Println("conair version", version.Version)
+	fmt.Println("conair version", projectVersion)
 	return
 }

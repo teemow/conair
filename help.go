@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"text/template"
-
-	"github.com/giantswarm/conair/version"
 )
 
 var (
@@ -107,7 +105,7 @@ func printGlobalUsage() {
 		commands,
 		getAllFlags(),
 		cliDescription,
-		version.Version,
+		projectVersion,
 	})
 	out.Flush()
 }
