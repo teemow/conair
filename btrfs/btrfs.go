@@ -186,11 +186,12 @@ func (d *Driver) GetLayerByUuid(uuid string) (string, error) {
 		return "", err
 	}
 
+	replaceHome := strings.Replace(d.home, "/", "", 1) + "/"
 	for _, layer := range layers {
 		if strings.Contains(layer, fmt.Sprintf(" uuid %s ", uuid)) {
 			layerDetails := strings.Split(layer, " ")
 			if len(layerDetails) > 10 {
-				return strings.Replace(layerDetails[10], strings.Replace(d.home, "/", "", 1), "", 1), nil
+				return strings.Replace(layerDetails[10], replaceHome, "", 1), nil
 			}
 		}
 	}

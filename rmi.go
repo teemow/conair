@@ -44,9 +44,9 @@ func runRmi(args []string) (exit int) {
 		}
 
 		layer, err = fs.GetLayerByUuid(uuid)
+		noParent := false
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Couldn't find parent layer.", err)
-			return 1
+			noParent = true
 		}
 
 		if err := fs.Remove(imagePath); err != nil {
@@ -54,10 +54,10 @@ func runRmi(args []string) (exit int) {
 			return 1
 		}
 
-		if strings.Index(layer, "images/") == 0 {
+		fmt.Println(imagePath)
+		if strings.Index(layer, "images/") == 0 || noParent {
 			break
 		} else {
-			fmt.Println(uuid, layer)
 			imagePath = layer
 		}
 	}
