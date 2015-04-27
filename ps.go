@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
+	"os/exec"
+	"strings"
 )
 
 var cmdPs = &Command{
@@ -14,17 +16,18 @@ var cmdPs = &Command{
 
 func runPs(args []string) (exit int) {
 
-	files, _ := ioutil.ReadDir(getContainerPath())
-	if len(files) < 1 {
-		fmt.Println("No containers found.")
-		return
+	path, err := exec.LookPath("machinectl")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "machinectl not found.")
 	}
 
-	fmt.Println("Running containers:")
-	for _, f := range files {
-		fmt.Println(f.Name())
-	}
+	args = append([]string{"list"}, args...)
 
-	fmt.Println("\nYou should also take a look at machinectl to manage your containers!")
+	output, err := exec.Command(path, args...).CombinedOutput()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "machinectl failed: machinctl %v: %s (%s)", strings.Join(args, " "), output, err)
+	}
+	fmt.Fprintln(os.Stdout, string(output[:]))
+
 	return
 }
