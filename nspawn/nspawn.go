@@ -14,16 +14,21 @@ const systemdPath string = "/etc/systemd/system"
 const nspawnTemplate string = `[Unit]
 Description=Container %i
 Documentation=man:systemd-nspawn(1)
+PartOf=machines.target
+Before=machines.target
 
 [Service]
 ExecStartPre=/usr/bin/sed -i "s/REPLACE_ME/${MACHINE_ID}/" {{.Directory}}/%i/etc/machine-id
 ExecStartPre=/usr/bin/chmod -w {{.Directory}}/%i/etc/machine-id
-ExecStart=/usr/bin/systemd-nspawn --machine %i --uuid=${MACHINE_ID} --capability=all --quiet --private-network --network-veth --network-bridge={{.Bridge}} --keep-unit --boot --link-journal=guest --directory={{.Directory}}/%i $BIND
+ExecStart=/usr/bin/systemd-nspawn --machine %i --uuid=${MACHINE_ID} --capability=all --quiet --network-veth --network-bridge={{.Bridge}} --keep-unit --boot --link-journal=try-guest --directory={{.Directory}}/%i $BIND
 KillMode=mixed
 Type=notify
+RestartForceExitStatus=133
+SuccessExitStatus=133
+Delegate=yes
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=machines.target
 `
 
 type unit struct {
@@ -33,8 +38,8 @@ type unit struct {
 
 func CreateUnit(bridge, containerPath string) error {
 	u := unit{
-		bridge,
-		containerPath,
+		Bridge:    bridge,
+		Directory: containerPath,
 	}
 
 	f, err := os.Create(fmt.Sprintf("%s/conair@.service", systemdPath))
@@ -68,7 +73,7 @@ func CreateImage(name, path string) error {
 		"bash", "bzip2", "coreutils", "diffutils", "file", "filesystem", "findutils",
 		"gawk", "gcc-libs", "gettext", "glibc", "grep", "gzip", "iproute2", "iputils",
 		"less", "libutil-linux", "licenses", "logrotate", "nano", "pacman", "procps-ng",
-		"psmisc", "sed", "shadow", "sysfsutils", "tar", "texinfo", "util-linux", "vi", "which")
+		"psmisc", "sed", "shadow", "sysfsutils", "systemd", "tar", "texinfo", "util-linux", "vi", "which")
 
 	cmd.Env = []string{
 		"TERM=vt102",
