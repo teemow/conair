@@ -164,9 +164,7 @@ func (d *Driver) ListSubvolumes() ([]string, error) {
 		if strings.Contains(line, "__active") {
 			line = strings.Replace(line, "__active/", "", 1)
 		}
-		if strings.Contains(line, fmt.Sprintf("%s", strings.Replace(d.home, "/", "", 1))) {
-			volumes = append(volumes, line)
-		}
+		volumes = append(volumes, line)
 	}
 	return volumes, nil
 }
