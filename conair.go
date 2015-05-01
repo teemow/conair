@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/user"
 	"text/tabwriter"
 )
 
@@ -45,6 +46,17 @@ func (s *stringSlice) Set(value string) error {
 }
 
 func init() {
+	user, err := user.Current()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "Can't find current user. Need to be root.")
+		os.Exit(1)
+	}
+
+	if user.Uid != "0" {
+		fmt.Fprintln(os.Stderr, "Please run conair as root.")
+		os.Exit(1)
+	}
+
 	globalFlagset.BoolVar(&globalFlags.Debug, "debug", false, "Print out more debug information to stderr")
 	globalFlagset.BoolVar(&globalFlags.Version, "version", false, "Print the version and exit")
 }
