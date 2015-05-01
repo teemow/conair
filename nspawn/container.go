@@ -223,7 +223,11 @@ func (c *Container) Inspect() (string, error) {
 }
 
 func (c *Container) Ip() (string, error) {
-	return c.Execute("ip route get 128.193.4.20 | awk '{print $7}'")
+	ip, err := c.Execute("ip route get 128.193.4.20 | awk '{print $7}'")
+	if err != nil {
+		return "", err
+	}
+	return strings.Trim(ip, "\n"), nil
 }
 
 func (c *Container) Build(verb, payload string) error {

@@ -21,7 +21,7 @@ func runStatus(args []string) (exit int) {
 	}
 
 	container := args[0]
-	c := nspawn.Init(container, fmt.Sprintf("%s/%s", getContainerPath(), container))
+	c := nspawn.Init(container, fmt.Sprintf("%s/.#%s", home, container))
 	status, err := c.Status()
 
 	if err != nil {

@@ -41,17 +41,16 @@ func runRun(args []string) (exit int) {
 		return 1
 	}
 
-	image := args[0]
-	imagePath := fmt.Sprintf("machines/%s", image)
+	imagePath := args[0]
 
 	var container string
 	if len(args) < 2 {
 		// add some hashing here
-		container = image
+		container = imagePath
 	} else {
 		container = args[1]
 	}
-	containerPath := fmt.Sprintf("container/%s", container)
+	containerPath := fmt.Sprintf(".#%s", container)
 
 	fs, _ := btrfs.Init(home)
 	if err := fs.Snapshot(imagePath, containerPath, false); err != nil {
@@ -59,7 +58,7 @@ func runRun(args []string) (exit int) {
 		return 1
 	}
 
-	c := nspawn.Init(container, fmt.Sprintf("%s/%s", getContainerPath(), container))
+	c := nspawn.Init(container, fmt.Sprintf("%s/%s", home, containerPath))
 	if len(flagBind) > 0 {
 		c.SetBinds(flagBind)
 	}
@@ -75,7 +74,7 @@ func runRun(args []string) (exit int) {
 			return 1
 		}
 
-		from := fmt.Sprintf("conair/snapshots/%s", paths[0])
+		from := fmt.Sprintf(".cnr-snapshot-%s", paths[0])
 		to := fmt.Sprintf("%s/%s", containerPath, paths[1])
 
 		if fs.Exists(to) {

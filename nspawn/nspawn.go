@@ -18,9 +18,9 @@ PartOf=machines.target
 Before=machines.target
 
 [Service]
-ExecStartPre=/usr/bin/sed -i "s/REPLACE_ME/${MACHINE_ID}/" {{.Directory}}/%i/etc/machine-id
-ExecStartPre=/usr/bin/chmod -w {{.Directory}}/%i/etc/machine-id
-ExecStart=/usr/bin/systemd-nspawn --machine %i --uuid=${MACHINE_ID} --capability=all --quiet --network-veth --network-bridge={{.Bridge}} --keep-unit --boot --link-journal=try-guest --directory={{.Directory}}/%i $BIND
+ExecStartPre=/usr/bin/sed -i "s/REPLACE_ME/${MACHINE_ID}/" "{{.Directory}}/.#%i/etc/machine-id"
+ExecStartPre=/usr/bin/chmod -w "{{.Directory}}/.#%i/etc/machine-id"
+ExecStart=/usr/bin/systemd-nspawn --machine %i --uuid=${MACHINE_ID} --capability=all --quiet --network-veth --network-bridge={{.Bridge}} --keep-unit --boot --link-journal=try-guest --directory={{.Directory}}/.#%i $BIND
 KillMode=mixed
 Type=notify
 RestartForceExitStatus=133

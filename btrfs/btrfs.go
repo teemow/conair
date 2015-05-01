@@ -22,7 +22,7 @@ var (
 )
 
 func Init(home string) (*Driver, error) {
-	rootdir := path.Dir(home)
+	rootdir := path.Dir(home + "/")
 
 	var buf syscall.Statfs_t
 	if err := syscall.Statfs(rootdir, &buf); err != nil {
@@ -34,15 +34,6 @@ func Init(home string) (*Driver, error) {
 	}
 
 	if err := os.MkdirAll(home, 0700); err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(fmt.Sprintf("%s/%s", home, "/machines"), 0700); err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(fmt.Sprintf("%s/%s", home, "/container"), 0700); err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(fmt.Sprintf("%s/%s", home, "/conair/layers"), 0700); err != nil {
 		return nil, err
 	}
 
@@ -229,7 +220,14 @@ func (d *Driver) ListSubSubvolumes(vol string) ([]string, error) {
 			if strings.Contains(subvol, "__active") {
 				subvol = strings.Replace(subvol, "__active/", "", 1)
 			}
-			volumes = append(volumes, strings.Replace(subvol, fmt.Sprintf("%s/", strings.Replace(volPath, "/", "", 1)), "", 1))
+
+			if strings.HasPrefix(subvol, volPath) {
+				volumes = append(volumes, strings.Replace(subvol, fmt.Sprintf("%s/", strings.Replace(volPath, "/", "", 1)), "", 1))
+			}
+
+			if strings.HasPrefix(subvol, vol) {
+				volumes = append(volumes, strings.Replace(subvol, fmt.Sprintf("%s/", vol), "", 1))
+			}
 		}
 	}
 	err = scanner.Err()

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/giantswarm/conair/btrfs"
 )
@@ -29,7 +30,7 @@ func runSnapshot(args []string) (exit int) {
 		}
 
 		snapshot := args[1]
-		snapshotPath := fmt.Sprintf("conair/snapshots/%s", snapshot)
+		snapshotPath := fmt.Sprintf(".cnr-snapshot-%s", snapshot)
 
 		fs, _ := btrfs.Init(home)
 
@@ -49,7 +50,7 @@ func runSnapshot(args []string) (exit int) {
 		}
 
 		snapshot := args[1]
-		snapshotPath := fmt.Sprintf("conair/snapshots/%s", snapshot)
+		snapshotPath := fmt.Sprintf(".cnr-snapshot-%s", snapshot)
 
 		fs, _ := btrfs.Init(home)
 
@@ -63,14 +64,16 @@ func runSnapshot(args []string) (exit int) {
 			return 1
 		}
 	case "ls":
-		snapshots, _ := ioutil.ReadDir(fmt.Sprintf("%s/conair/snapshots", home))
+		snapshots, _ := ioutil.ReadDir(home)
 		if len(snapshots) < 1 {
 			fmt.Println("No snapshots found.")
 			return
 		}
 
 		for _, s := range snapshots {
-			fmt.Println(s.Name())
+			if strings.HasPrefix(s.Name(), ".cnr-snapshot-") {
+				fmt.Println(s.Name())
+			}
 		}
 
 	default:

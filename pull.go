@@ -17,7 +17,6 @@ var cmdPull = &Command{
 }
 
 func runPull(args []string) (exit int) {
-	var newImage string
 	if len(args) < 1 {
 		fmt.Fprintln(os.Stderr, "Image name missing.")
 		return 1
@@ -25,12 +24,12 @@ func runPull(args []string) (exit int) {
 
 	image := args[0]
 
+	var newImage string
 	if len(args) > 1 {
 		newImage = args[1]
 	} else {
 		newImage = image
 	}
-	newImagePath := fmt.Sprintf("machines/%s", newImage)
 
 	fs, err := btrfs.Init(home)
 	if err != nil {
@@ -38,15 +37,15 @@ func runPull(args []string) (exit int) {
 		return 1
 	}
 
-	err = fs.Subvolume(newImagePath)
+	err = fs.Subvolume(newImage)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, fmt.Sprintf("Couldn't create subvolume for image %s.", newImage), err)
 		return 1
 	}
 
-	err = nspawn.FetchImage(image, newImage, hub, getImagesPath())
+	err = nspawn.FetchImage(image, newImage, hub, home)
 	if err != nil {
-		_ = fs.Remove(newImagePath)
+		_ = fs.Remove(newImage)
 		fmt.Fprintln(os.Stderr, fmt.Sprintf("Couldn't create image %s.", newImage), err)
 		return 1
 	}
