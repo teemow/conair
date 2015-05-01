@@ -22,8 +22,7 @@ func runBootstrap(args []string) (exit int) {
 		return 1
 	}
 
-	image := args[0]
-	imagePath := fmt.Sprintf("machines/%s", image)
+	imagePath := args[0]
 
 	fs, err := btrfs.Init(home)
 	if err != nil {
@@ -33,17 +32,17 @@ func runBootstrap(args []string) (exit int) {
 
 	err = fs.Subvolume(imagePath)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, fmt.Sprintf("Couldn't create subvolume for image %s.", image), err)
+		fmt.Fprintln(os.Stderr, fmt.Sprintf("Couldn't create subvolume for image %s.", imagePath), err)
 		return 1
 	}
 
-	err = nspawn.CreateImage(image, getImagesPath())
+	err = nspawn.CreateImage(imagePath, home)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't create image.", err)
 		return 1
 	}
 
-	err = networkd.DefineContainerNetwork(fmt.Sprintf("%s/%s", getImagesPath(), image), destination)
+	err = networkd.DefineContainerNetwork(fmt.Sprintf("%s/%s", home, imagePath), destination)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't add networking to new image.", err)
 		return 1

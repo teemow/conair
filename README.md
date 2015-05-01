@@ -5,7 +5,8 @@ Without these tools you are probably screwed. PRs are welcome!
  * archlinux/CoreOS
  * systemd-nspawn
  * systemd-networkd (systemd 215+)
- * btrfs
+ * systemd-machined (systemd 219+)
+ * (btrfs)
 
 ## Build
 
@@ -13,6 +14,12 @@ Install go and run make. This will install conair to `/usr/local/bin`:
 
 ```
 make && make install
+```
+
+If you don't have a btrfs partition/root then you can create a loopback device with btrfs and mount it to `/var/lib/machines`. I wrote a little tool called [loopback](https://github.com/teemow/loopback) for it.
+
+```
+sudo loopback create --name=conair --size=10 /var/lib/machines
 ```
 
 ## Usage

@@ -21,13 +21,12 @@ func runRmi(args []string) (exit int) {
 		return 1
 	}
 
-	image := args[0]
-	imagePath := fmt.Sprintf("machines/%s", image)
+	imagePath := args[0]
 
 	fs, _ := btrfs.Init(home)
 
 	if !fs.Exists(imagePath) {
-		fmt.Fprintln(os.Stderr, fmt.Sprintf("Image %s does not exists.", image))
+		fmt.Fprintln(os.Stderr, fmt.Sprintf("Image %s does not exists.", imagePath))
 		return 1
 	}
 
@@ -55,7 +54,7 @@ func runRmi(args []string) (exit int) {
 		}
 
 		fmt.Println(imagePath)
-		if strings.Index(layer, "machines/") == 0 || noParent {
+		if !strings.HasPrefix(layer, ".cnr-") || noParent {
 			break
 		} else {
 			imagePath = layer

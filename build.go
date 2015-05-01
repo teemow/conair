@@ -31,8 +31,7 @@ func runBuild(args []string) (exit int) {
 		return 1
 	}
 
-	newImage := args[0]
-	newImagePath := fmt.Sprintf("machines/%s", newImage)
+	newImagePath := args[0]
 
 	fs, _ := btrfs.Init(home)
 
@@ -55,8 +54,7 @@ func runBuild(args []string) (exit int) {
 		}
 	}
 
-	image := f.From
-	parentPath := fmt.Sprintf("machines/%s", image)
+	parentPath := f.From
 
 	for i, snap := range f.Snapshots {
 		paths := strings.Split(snap, ":")
@@ -66,7 +64,7 @@ func runBuild(args []string) (exit int) {
 		}
 
 		// check if snapshot exists - otherwise create a new subvolume
-		snapshotPath := fmt.Sprintf("conair/snapshots/%s", paths[0])
+		snapshotPath := fmt.Sprintf(".cnr-snapshot-%s", paths[0])
 		if !fs.Exists(snapshotPath) {
 			if err := fs.Subvolume(snapshotPath); err != nil {
 				fmt.Fprintln(os.Stderr, fmt.Sprintf("Couldn't create snapshot '%s'.", snapshotPath))
@@ -74,7 +72,7 @@ func runBuild(args []string) (exit int) {
 			}
 		}
 
-		f.Snapshots[i] = fmt.Sprintf("%s/conair/snapshots/%s", home, snap)
+		f.Snapshots[i] = fmt.Sprintf("%s/.cnr-snapshot-%s", home, snap)
 	}
 
 	for _, cmd := range f.Commands {

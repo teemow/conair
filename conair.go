@@ -13,7 +13,7 @@ const (
 
 	bridge      = "nspawn0"
 	destination = "192.168.13.0/24"
-	home        = "/var/lib"
+	home        = "/var/lib/machines"
 	hub         = "http://conair.teemow.com/images"
 )
 
@@ -96,14 +96,6 @@ func getFlags(flagset *flag.FlagSet) (flags []*flag.Flag) {
 		flags = append(flags, f)
 	})
 	return
-}
-
-func getContainerPath() string {
-	return fmt.Sprintf("%s/container", home)
-}
-
-func getImagesPath() string {
-	return fmt.Sprintf("%s/machines", home)
 }
 
 func main() {

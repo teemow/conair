@@ -21,15 +21,14 @@ func runCommit(args []string) (exit int) {
 	}
 
 	container := args[0]
-	containerPath := fmt.Sprintf("container/%s", container)
+	containerPath := fmt.Sprintf(".#%s", container)
 
-	var image string
+	var imagePath string
 	if len(args) < 2 {
-		image = container
+		imagePath = container
 	} else {
-		image = args[1]
+		imagePath = args[1]
 	}
-	imagePath := fmt.Sprintf("machines/%s", image)
 
 	fs, _ := btrfs.Init(home)
 	if err := fs.Snapshot(containerPath, imagePath, true); err != nil {

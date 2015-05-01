@@ -25,7 +25,7 @@ func runInit(args []string) (exit int) {
 	}
 
 	fmt.Println("Create systemd unit for conair containers.")
-	err = nspawn.CreateUnit(bridge, getContainerPath())
+	err = nspawn.CreateUnit(bridge, home)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't create unit file to start containers.", err)
 		return 1
