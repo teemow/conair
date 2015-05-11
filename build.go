@@ -101,7 +101,7 @@ func runBuild(args []string) (exit int) {
 
 		parentPath = l.Path
 	}
-	if err = fs.Snapshot(parentPath, newImagePath, true); err != nil {
+	if err = fs.Snapshot(parentPath, newImagePath, false); err != nil {
 		fmt.Fprintln(os.Stderr, "Couldn't create filesystem for new image.", err)
 		return 1
 	}
