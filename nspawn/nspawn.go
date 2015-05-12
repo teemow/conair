@@ -135,7 +135,7 @@ func FetchImage(image, newImage, url, path string) error {
 		"LANG=C",
 		"HOME=/root",
 		"PWD=/root",
-		"PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/bin/core_perl",
+		"PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/bin/core_perl",
 	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
