@@ -125,7 +125,7 @@ func (d *Driver) GetSubvolumeDetail(vol, detail string) (string, error) {
 		fields := strings.Split(line, ":")
 		if len(fields) > 1 {
 			key, val := strings.Trim(fields[0], " \t"), strings.Trim(fields[1], " \t")
-			if key == detail {
+			if strings.EqualFold(key, detail) {
 				return val, nil
 			}
 		}
