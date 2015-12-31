@@ -11,10 +11,11 @@ import (
 	"syscall"
 )
 
-type FsMagic uint64
+type FsMagic int64
 
 const (
-	FsMagicBtrfs = FsMagic(0x9123683E)
+	FsMagicBtrfs      = FsMagic(0x9123683E)
+	FsMagicBtrfs32Bit = FsMagic(-1859950530)
 )
 
 var (
@@ -29,7 +30,7 @@ func Init(home string) (*Driver, error) {
 		return nil, err
 	}
 
-	if FsMagic(buf.Type) != FsMagicBtrfs {
+	if !(FsMagic(buf.Type) == FsMagicBtrfs || FsMagic(buf.Type) == FsMagicBtrfs32Bit) {
 		return nil, ErrPrerequisites
 	}
 
