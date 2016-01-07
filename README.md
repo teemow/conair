@@ -1,6 +1,10 @@
-# Conair - an opinionated Docker clone
+# Conair - systemd OS containers
 
-Without these tools you are probably screwed. PRs are welcome!
+ * Build Archlinux nspawn containers easily.
+ * Run other container orchestration tools inside of containers within a second. Much faster than using vagrant.
+ * Manage multiple services inside of a container without the hassle of supervisord. 
+
+## Dependencies
 
  * archlinux/CoreOS
  * systemd-nspawn
@@ -75,10 +79,11 @@ conair version   # Print the version and exit
 
 ## Why?
 
-* For the fun of it
-* Proper systemd integration
+* Testing different docker versions inside of containers
+* Having a nice workflow to create new nspawn containers
+* A proper systemd integration between host and containers
 * No need to use supervisord _if_ you need to run multiple services within the same container
-* All CoreOS components in a single container
+* All CoreOS components in a single container but change them independently and test quickly
  * Systemd
  * Fleet
  * Etcd
