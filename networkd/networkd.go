@@ -30,7 +30,6 @@ Name={{.Name}}
 
 [Network]
 Address={{.Destination}}.1/24
-LinkLocalAddressing=yes
 DHCPServer=yes
 DNS=8.8.8.8
 IPMasquerade=yes
@@ -42,7 +41,6 @@ Name=host0
 
 [Network]
 DHCP=yes
-LinkLocalAddressing=yes
 
 [Route]
 Gateway={{.Destination}}.1
